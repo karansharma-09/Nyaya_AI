@@ -7,6 +7,7 @@ import numpy as np
 from datetime import datetime
 from engine import process_complaint
 from fpdf import FPDF
+import time
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
@@ -15,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Modern UI CSS without Emojis, using sleek borders and spacing
+# Modern UI CSS
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E6EDF3; }
@@ -32,7 +33,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(31, 111, 235, 0.2);
     }
     div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child { display: none; }
-    /* Card Styling */
     .st-emotion-cache-1y4p8pa { padding: 1.5rem; border-radius: 10px; border: 1px solid #30363D; background-color: #161B22;}
     </style>
     """, unsafe_allow_html=True)
@@ -47,17 +47,52 @@ def create_pdf(text):
         pdf.multi_cell(0, 10, txt=line, align='L')
     return pdf.output(dest='S').encode('latin-1')
 
-# --- SESSION STATE ---
+# --- SESSION STATE INITIALIZATION ---
+if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'processed' not in st.session_state: st.session_state.processed = False
 if 'data' not in st.session_state: st.session_state.data = None
+
+# ==========================================
+# 🛑 SECURE LOGIN GATEKEEPER
+# ==========================================
+if not st.session_state.logged_in:
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    
+    with col2:
+        with st.container(border=True):
+            st.markdown("<h2 style='text-align: center; color: #58A6FF;'>NYAYA <span style='color:white;'>AI</span></h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #8B949E;'>Department of Legal Affairs & Law Enforcement</p>", unsafe_allow_html=True)
+            st.divider()
+            
+            st.markdown("#### Authorized Access Only")
+            officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
+            password = st.text_input("Secure Password", type="password", placeholder="••••••••")
+            
+            if st.button("Authenticate 🔒", type="primary", use_container_width=True):
+                if officer_id == "admin" and password == "nyaya2026":
+                    with st.spinner("Verifying credentials..."):
+                        time.sleep(1) # Fake loading for realistic effect
+                        st.session_state.logged_in = True
+                        st.rerun()
+                elif officer_id or password:
+                    st.error("Invalid Credentials. Access Denied.")
+                    
+            st.markdown("<br><p style='text-align: center; font-size: 12px; color: #484F58;'>Attempting to bypass this portal is a federal offense under BNS Section 302.</p>", unsafe_allow_html=True)
+    
+    # st.stop() ensures nothing below this line runs until logged in!
+    st.stop()
+
+# ==========================================
+# 🟢 MAIN APPLICATION (ONLY SHOWS IF LOGGED IN)
+# ==========================================
 
 # --- SIDEBAR & LIVE CLOCK ---
 with st.sidebar:
     st.markdown("<h1 style='color: #58A6FF; margin-bottom:0; font-weight: 800; letter-spacing: 1px;'>NYAYA <span style='color:#E6EDF3; font-weight: 300;'>AI</span></h1>", unsafe_allow_html=True)
-    st.caption("ENTERPRISE EDITION | BNS MAPPED")
+    st.caption(f"LOGGED IN: OFFICER ADMIN")
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Modern Material Icons instead of Emojis
     menu = [
         ":material/dashboard: Dashboard", 
         ":material/folder_open: My Cases", 
@@ -81,26 +116,21 @@ with st.sidebar:
         </script>
     """, height=50)
     
-    if st.button(":material/restart_alt: Reset Session", use_container_width=True):
+    if st.button(":material/logout: Secure Logout", use_container_width=True):
+        st.session_state.logged_in = False
         st.session_state.processed = False
         st.session_state.data = None
         st.rerun()
 
-# ==========================================
-# 🧱 TABS LOGIC
-# ==========================================
-
+# --- TABS LOGIC ---
 if choice == ":material/dashboard: Dashboard":
     st.title("Station Command Center")
     st.markdown("Real-time intelligence synced with regional police database.")
-    
-    # Using container borders for a modern card look
     with st.container(border=True):
         m1, m2, m3 = st.columns(3)
         m1.metric("Pending Intakes", "142", "+12%")
         m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
         m3.metric("Avg. Resolution", "14m", "-2m")
-        
     st.subheader("Regional Crime Trends (24H)")
     st.line_chart(pd.DataFrame(np.random.randn(24, 3), columns=['Theft', 'Assault', 'Cyber']))
 
@@ -119,12 +149,10 @@ elif choice == ":material/mic: Secure Evidence":
     st.markdown("Capture or upload forensic evidence for AI analysis.")
     
     if not st.session_state.processed:
-        # Sleek tabs without emojis
         tab1, tab2 = st.tabs(["Record Live Audio", "Upload File"])
         
         with tab1:
             st.markdown("##### Direct Voice Input")
-            # BRAND NEW STREAMLIT NATIVE AUDIO (Fixes Mobile Issues)
             rec = st.audio_input("Tap to start secure recording")
             
         with tab2:
@@ -136,27 +164,20 @@ elif choice == ":material/mic: Secure Evidence":
             st.markdown("##### Visual Evidence (Optional)")
             imgs = st.file_uploader("Upload incident photographs", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
         
-        # Determine which audio to use
-        final_audio_bytes = None
-        if rec:
-            final_audio_bytes = rec.getvalue()
-        elif uploaded_audio:
-            final_audio_bytes = uploaded_audio.getvalue()
+        final_audio_bytes = rec.getvalue() if rec else (uploaded_audio.getvalue() if uploaded_audio else None)
 
         if final_audio_bytes:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Initialize AI Forensic Analysis", type="primary", use_container_width=True):
                 with st.spinner("Processing evidence and mapping BNS sections..."):
                     audio_path = "temp_audio.wav"
-                    with open(audio_path, "wb") as f:
-                        f.write(final_audio_bytes)
+                    with open(audio_path, "wb") as f: f.write(final_audio_bytes)
                     
                     img_paths = []
                     if imgs:
                         for img in imgs:
                             p = f"temp_{img.name}"
-                            with open(p, "wb") as f:
-                                f.write(img.getbuffer())
+                            with open(p, "wb") as f: f.write(img.getbuffer())
                             img_paths.append(p)
                     
                     try:
@@ -171,10 +192,8 @@ elif choice == ":material/mic: Secure Evidence":
                         for p in img_paths:
                             if os.path.exists(p): os.remove(p)
     else:
-        # RESULTS VIEW (Modern Layout)
         res = st.session_state.data
         score = res.get('credibility_score', 0)
-        
         st.subheader("Intelligence Report Generated")
         
         with st.container(border=True):
