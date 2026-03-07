@@ -5,28 +5,39 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from audio_recorder_streamlit import audio_recorder
 from engine import process_complaint
 from fpdf import FPDF
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
-    page_title="Nyaya AI | BNS Portal", 
+    page_title="Nyaya AI | Secure Portal", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
 
+# Modern UI CSS without Emojis, using sleek borders and spacing
 st.markdown("""
     <style>
     .stApp { background-color: #0E1117; color: #E6EDF3; }
-    [data-testid="stMetricValue"] { color: #58A6FF; }
+    [data-testid="stMetricValue"] { color: #58A6FF; font-weight: 600; }
     [data-testid="stSidebar"] { background-color: #161B22 !important; border-right: 1px solid #30363D; }
-    div[role="radiogroup"] > label { padding: 10px; border-radius: 8px; margin-bottom: 5px; color: #8B949E !important; font-weight: bold; }
-    div[role="radiogroup"] > label[aria-checked="true"] { background-color: #1F6FEB; color: white !important; }
+    div[role="radiogroup"] > label { 
+        padding: 12px 15px; border-radius: 6px; margin-bottom: 8px; 
+        color: #8B949E !important; font-weight: 500; font-size: 15px;
+        transition: all 0.2s ease-in-out;
+    }
+    div[role="radiogroup"] > label:hover { background-color: #21262D; }
+    div[role="radiogroup"] > label[aria-checked="true"] { 
+        background-color: #1F6FEB; color: white !important; 
+        box-shadow: 0 4px 12px rgba(31, 111, 235, 0.2);
+    }
     div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child { display: none; }
+    /* Card Styling */
+    .st-emotion-cache-1y4p8pa { padding: 1.5rem; border-radius: 10px; border: 1px solid #30363D; background-color: #161B22;}
     </style>
     """, unsafe_allow_html=True)
 
+# Helper for PDF
 def create_pdf(text):
     pdf = FPDF()
     pdf.add_page()
@@ -42,26 +53,35 @@ if 'data' not in st.session_state: st.session_state.data = None
 
 # --- SIDEBAR & LIVE CLOCK ---
 with st.sidebar:
-    st.markdown("<h1 style='color: #58A6FF; margin-bottom:0;'>Nyaya <span style='color:white; font-style:italic;'>AI</span></h1>", unsafe_allow_html=True)
-    st.caption("v2.5 | Bharat Legal Network")
+    st.markdown("<h1 style='color: #58A6FF; margin-bottom:0; font-weight: 800; letter-spacing: 1px;'>NYAYA <span style='color:#E6EDF3; font-weight: 300;'>AI</span></h1>", unsafe_allow_html=True)
+    st.caption("ENTERPRISE EDITION | BNS MAPPED")
+    st.markdown("<br>", unsafe_allow_html=True)
     
+    # Modern Material Icons instead of Emojis
+    menu = [
+        ":material/dashboard: Dashboard", 
+        ":material/folder_open: My Cases", 
+        ":material/description: FIR Drafts", 
+        ":material/mic: Secure Evidence", 
+        ":material/person: Profile", 
+        ":material/bar_chart: Reports"
+    ]
+    choice = st.radio("Navigation", menu, index=3, label_visibility="collapsed")
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
     components.html("""
-        <div id="clock" style="color: #3FB950; font-family: monospace; font-size: 14px; text-align: center; padding: 5px; background: #0D1117; border-radius: 5px; border: 1px solid #30363D;"></div>
+        <div id="clock" style="color: #3FB950; font-family: 'Courier New', monospace; font-size: 13px; text-align: center; padding: 8px; background: #0D1117; border-radius: 4px; border: 1px solid #238636;"></div>
         <script>
             function update() {
                 const now = new Date();
-                document.getElementById('clock').innerHTML = "SYSTEM TIME: " + now.toLocaleTimeString('en-IN');
+                document.getElementById('clock').innerHTML = "SECURE SYNC: " + now.toLocaleTimeString('en-IN');
                 setTimeout(update, 1000);
             }
             update();
         </script>
-    """, height=40)
+    """, height=50)
     
-    menu = ["🧱 Dashboard", "⚖️ My Cases", "📄 FIR Drafts", "🎙️ Secure Evidence", "👤 Profile", "📉 Reports"]
-    choice = st.radio("Navigation", menu, index=3, label_visibility="collapsed")
-    
-    st.markdown("---")
-    if st.button("Reset Session", use_container_width=True):
+    if st.button(":material/restart_alt: Reset Session", use_container_width=True):
         st.session_state.processed = False
         st.session_state.data = None
         st.rerun()
@@ -70,50 +90,63 @@ with st.sidebar:
 # 🧱 TABS LOGIC
 # ==========================================
 
-if choice == "🧱 Dashboard":
+if choice == ":material/dashboard: Dashboard":
     st.title("Station Command Center")
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Pending FIRs", "142", "+12%")
-    m2.metric("AI Accuracy", "98.4%", "Stable")
-    m3.metric("Avg. Response", "14m", "-2m")
-    st.subheader("Crime Trends - Last 24 Hours")
+    st.markdown("Real-time intelligence synced with regional police database.")
+    
+    # Using container borders for a modern card look
+    with st.container(border=True):
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Pending Intakes", "142", "+12%")
+        m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
+        m3.metric("Avg. Resolution", "14m", "-2m")
+        
+    st.subheader("Regional Crime Trends (24H)")
     st.line_chart(pd.DataFrame(np.random.randn(24, 3), columns=['Theft', 'Assault', 'Cyber']))
 
-elif choice == "⚖️ My Cases":
+elif choice == ":material/folder_open: My Cases":
     st.title("Active Case Files")
     cases = pd.DataFrame({
-        "ID": ["NY-882", "NY-881", "NY-879"],
-        "Date": ["07-03-2026", "06-03-2026", "05-03-2026"],
-        "Status": ["Verified", "Pending", "Flagged"],
-        "BNS": ["303(2)", "115(1)", "318(4)"]
+        "Case ID": ["NY-882", "NY-881", "NY-879"],
+        "Timestamp": ["07-03-2026", "06-03-2026", "05-03-2026"],
+        "Verification": ["Verified", "Pending", "Flagged"],
+        "BNS Sections": ["303(2)", "115(1)", "318(4)"]
     })
-    st.dataframe(cases, use_container_width=True)
+    st.dataframe(cases, use_container_width=True, hide_index=True)
 
-elif choice == "🎙️ Secure Evidence":
-    st.title("Evidence Intake & Analysis")
+elif choice == ":material/mic: Secure Evidence":
+    st.title("Secure Evidence Intake")
+    st.markdown("Capture or upload forensic evidence for AI analysis.")
     
     if not st.session_state.processed:
-        tab1, tab2 = st.tabs(["🎙️ Record Live", "📁 Upload Audio"])
+        # Sleek tabs without emojis
+        tab1, tab2 = st.tabs(["Record Live Audio", "Upload File"])
         
         with tab1:
-            st.markdown("### Live Voice Recording")
-            rec = audio_recorder(text="Tap to Record Statement", icon_size="2x", icon_name="microphone")
-            if rec: st.audio(rec)
-        
+            st.markdown("##### Direct Voice Input")
+            # BRAND NEW STREAMLIT NATIVE AUDIO (Fixes Mobile Issues)
+            rec = st.audio_input("Tap to start secure recording")
+            
         with tab2:
-            st.markdown("### Upload Pre-recorded Audio")
-            uploaded_audio = st.file_uploader("Select MP3, WAV, or M4A", type=['mp3', 'wav', 'm4a'])
+            st.markdown("##### Upload Existing Recording")
+            uploaded_audio = st.file_uploader("Supported: MP3, WAV, M4A", type=['mp3', 'wav', 'm4a'], label_visibility="collapsed")
             if uploaded_audio: st.audio(uploaded_audio)
 
-        st.divider()
-        st.markdown("### 📸 Visual Evidence (Optional)")
-        imgs = st.file_uploader("Incident Photos", accept_multiple_files=True, type=['png','jpg','jpeg'])
+        with st.container(border=True):
+            st.markdown("##### Visual Evidence (Optional)")
+            imgs = st.file_uploader("Upload incident photographs", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
         
-        final_audio_bytes = rec if rec else (uploaded_audio.getbuffer() if uploaded_audio else None)
+        # Determine which audio to use
+        final_audio_bytes = None
+        if rec:
+            final_audio_bytes = rec.getvalue()
+        elif uploaded_audio:
+            final_audio_bytes = uploaded_audio.getvalue()
 
         if final_audio_bytes:
-            if st.button("Generate Intelligence Report 🚀", type="primary", use_container_width=True):
-                with st.spinner("Analyzing forensics..."):
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Initialize AI Forensic Analysis", type="primary", use_container_width=True):
+                with st.spinner("Processing evidence and mapping BNS sections..."):
                     audio_path = "temp_audio.wav"
                     with open(audio_path, "wb") as f:
                         f.write(final_audio_bytes)
@@ -132,44 +165,48 @@ elif choice == "🎙️ Secure Evidence":
                         st.session_state.processed = True
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Analysis Failed: {e}")
+                        st.error(f"Analysis Engine Error: {e}")
                     finally:
                         if os.path.exists(audio_path): os.remove(audio_path)
                         for p in img_paths:
                             if os.path.exists(p): os.remove(p)
     else:
-        # RESULTS VIEW
+        # RESULTS VIEW (Modern Layout)
         res = st.session_state.data
         score = res.get('credibility_score', 0)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if score < 40:
-                st.error(f"🚨 FAKE CASE DETECTED (Score: {score})")
-                st.warning(f"Reason: {res.get('credibility_reason')}")
-            else:
-                st.success(f"Case Verified (Score: {score}%)")
-                st.write(f"**Location:** {res.get('location')}")
-                st.write(f"**BNS Mapping:** {res.get('bns_sections')}")
+        st.subheader("Intelligence Report Generated")
+        
+        with st.container(border=True):
+            col1, col2 = st.columns([1.5, 1])
+            with col1:
+                st.markdown(f"**Incident Location:** {res.get('location')}")
+                st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections')}`")
+            with col2:
+                if score < 40:
+                    st.error(f"⚠️ FLAG: FAKE CASE DETECTED\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason')}")
+                else:
+                    st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
         if score >= 40:
-            st.divider()
+            st.markdown("### Official Draft Review")
             draft_text = res.get('draft_letter', '')
-            edited_draft = st.text_area("Final Review:", value=draft_text, height=300)
+            edited_draft = st.text_area("Modify AI-generated draft before exporting:", value=draft_text, height=300, label_visibility="collapsed")
             
             pdf_data = create_pdf(edited_draft)
             st.download_button(
-                label="📥 Download Official FIR PDF",
+                label=":material/download: Export Official FIR Document (PDF)",
                 data=pdf_data,
-                file_name=f"FIR_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                file_name=f"Nyaya_FIR_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                 mime="application/pdf",
                 type="primary"
             )
 
-elif choice == "📉 Reports":
+elif choice == ":material/bar_chart: Reports":
     st.title("Jurisdiction Analytics")
-    st.bar_chart(pd.DataFrame(np.random.randint(10, 50, size=(7, 1)), index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]))
+    with st.container(border=True):
+        st.bar_chart(pd.DataFrame(np.random.randint(10, 50, size=(7, 1)), index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]))
 
 else:
-    st.title(choice)
-    st.info("System Ready. Waiting for local API sync.")
+    st.title(choice.split(": ")[-1])
+    st.info("Module ready. Awaiting secure network connection.")
