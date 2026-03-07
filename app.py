@@ -93,4 +93,8 @@ elif choice == "⚖️ My Cases":
     st.title("Active Case Files")
     cases = pd.DataFrame({
         "ID": ["NY-882", "NY-881", "NY-879"],
-        "Date": ["0
+        "Date": ["07-03-2026", "06-03-2026", "05-03-2026"],
+        "Status": ["Verified", "Pending", "Flagged"],
+        "BNS": ["303(2)", "115(1)", "318(4)"]
+    })
+    st.dataframe(cases, use_container_width=True)
