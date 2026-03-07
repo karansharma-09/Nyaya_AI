@@ -3,5 +3,4 @@ google-generativeai
 python-dotenv
 pandas
 numpy
-audio-recorder-streamlit
 fpdf
