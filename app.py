@@ -114,33 +114,66 @@ elif choice == "⚖️ My Cases":
 # ==========================================
 # 🎙️ TAB 3: SECURE EVIDENCE (CORE ENGINE)
 # ==========================================
+# ... (Baaki saara CSS aur Sidebar same rahega)
+
 elif choice == "🎙️ Secure Evidence":
-    st.title("Evidence Intake")
+    st.title("Evidence Intake & Analysis")
+    st.markdown("Choose your preferred method of providing evidence.")
     
     if not st.session_state.processed:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.markdown("### 🎙️ Voice Recording")
-            rec = audio_recorder(text="Tap to Record", icon_size="2x")
-        with col2:
-            st.markdown("### 📸 Visual Proof")
-            imgs = st.file_uploader("Upload evidence", accept_multiple_files=True, type=['png','jpg','jpeg'])
+        # --- TABULAR SELECTION FOR INPUT ---
+        input_type = st.tabs(["🎙️ Record Live", "📁 Upload File"])
         
+        with input_type[0]:
+            st.markdown("### Live Voice Recording")
+            rec = audio_recorder(text="Tap to Record Statement", icon_size="2x", icon_name="microphone")
+            if rec:
+                st.audio(rec)
+        
+        with input_type[1]:
+            st.markdown("### Upload Pre-recorded Audio")
+            uploaded_audio = st.file_uploader("Select MP3, WAV, or M4A file", type=['mp3', 'wav', 'm4a'])
+            if uploaded_audio:
+                st.audio(uploaded_audio)
+
+        st.divider()
+        
+        # --- COMMON VISUAL EVIDENCE & PROCESSOR ---
+        st.markdown("### 📸 Visual Evidence (Optional)")
+        imgs = st.file_uploader("Upload photos of the incident/injury", accept_multiple_files=True, type=['png','jpg','jpeg'])
+        
+        # Determining which audio to use
+        final_audio = None
         if rec:
-            st.audio(rec)
-            if st.button("Analyze & Draft FIR", type="primary", use_container_width=True):
-                with st.spinner("Analyzing forensics..."):
-                    # Save audio to temp file
-                    with open("temp.wav", "wb") as f: f.write(rec)
+            final_audio = rec
+        elif uploaded_audio:
+            final_audio = uploaded_audio.getbuffer()
+
+        if final_audio:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Generate Intelligence Report 🚀", type="primary", use_container_width=True):
+                with st.spinner("Analyzing forensics & BNS Mapping..."):
+                    audio_path = "temp_audio.wav"
+                    with open(audio_path, "wb") as f: f.write(final_audio)
                     
-                    # Process via engine
+                    img_paths = []
+                    if imgs:
+                        for img in imgs:
+                            p = f"temp_{img.name}"
+                            with open(p, "wb") as f: f.write(img.getbuffer())
+                            img_paths.append(p)
+                    
                     try:
-                        res = process_complaint("temp.wav")
+                        res = process_complaint(audio_path, img_paths)
                         st.session_state.data = json.loads(res)
                         st.session_state.processed = True
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Analysis Failed: {e}")
+                        st.error(f"Error: {e}")
+                    finally:
+                        if os.path.exists(audio_path): os.remove(audio_path)
+                        for p in img_paths:
+                            if os.path.exists(p): os.remove(p)
 
     else:
         # Results View
@@ -176,3 +209,4 @@ elif choice == "📉 Reports":
 else:
     st.title(choice)
     st.write(f"Feature '{choice}' is currently under maintenance or being synced with Delhi Police Servers.")
+
