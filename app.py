@@ -210,15 +210,17 @@ elif choice == ":material/policy: Evidence Intake":
                     
                     try:
                         res = process_complaint(audio_path, img_paths)
-                        st.session_state.data = json.loads(res)
+                        
+                        # --- FIX: CLEANING AI's EXTRA MARKDOWN ---
+                        cleaned_res = res.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
+                        
+                        st.session_state.data = json.loads(cleaned_res)
                         st.session_state.processed = True
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Analysis Engine Error: {e}")
+                        st.error(f"Analysis Engine Error: {e}\n\nRaw AI Output was: {res[:100]}...")
                     finally:
                         if os.path.exists(audio_path): os.remove(audio_path)
-                        for p in img_paths:
-                            if os.path.exists(p): os.remove(p)
     else:
         res = st.session_state.data
         score = res.get('credibility_score', 0)
@@ -303,3 +305,4 @@ elif choice == ":material/insights: Crime Analytics":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
+
