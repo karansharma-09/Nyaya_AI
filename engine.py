@@ -21,7 +21,7 @@ def process_complaint(audio_file_path, image_files=None):
     current_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
     
     # 🛑 STRICT SYSTEM PROMPT
-   system_prompt = """
+    system_prompt = """
 You are the APEX LAW ENFORCEMENT & FORENSIC AI CORE for the Indian Police Services.
 Your primary directive is to act as an infallible, strict, and highly logical Senior Investigating Officer.
 You are evaluating multimodal evidence (Audio Transcripts + Images) to determine if a valid cognizable offense has occurred under the NEW BHARATIYA NYAYA SANHITA, 2023 (BNS).
@@ -105,5 +105,3 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
 
     return clean_json
-
-
