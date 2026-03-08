@@ -12,6 +12,7 @@ import hashlib
 import qrcode
 from io import BytesIO
 import re
+import sqlite3
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
@@ -56,6 +57,37 @@ st.markdown("""
     .admissibility-low { background-color: #rgba(248, 81, 73, 0.1); color: #F85149; border: 1px solid #F85149; }
     </style>
     """, unsafe_allow_html=True)
+
+# --- DATABASE INITIALIZATION ---
+def init_db():
+    conn = sqlite3.connect("nyaya_records.db")
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS fir_archives (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fir_id TEXT,
+                    date_filed TEXT,
+                    status TEXT,
+                    bns_sections TEXT,
+                    officer TEXT,
+                    location TEXT,
+                    evidence_hash TEXT
+                )''')
+    
+    # Add some dummy data if the database is newly created and empty
+    c.execute("SELECT COUNT(*) FROM fir_archives")
+    if c.fetchone()[0] == 0:
+        dummy_data = [
+            ("NY-882", "08-03-2026", "Verified", "303(2)", "Insp. Sharma", "Connaught Place", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+            ("NY-881", "07-03-2026", "Pending Review", "115(1)", "SI Verma", "Rohini Sec 7", "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"),
+            ("NY-879", "06-03-2026", "Flagged (Fake)", "None", "Insp. Sharma", "South Ext", "invalid_hash_sequence")
+        ]
+        c.executemany("INSERT INTO fir_archives (fir_id, date_filed, status, bns_sections, officer, location, evidence_hash) VALUES (?, ?, ?, ?, ?, ?, ?)", dummy_data)
+    
+    conn.commit()
+    conn.close()
+
+# Initialize the DB on app start
+init_db()
 
 # Helper for Dynamic GPS based on location text
 def get_dynamic_coords(loc_string):
@@ -205,9 +237,16 @@ if choice == ":material/admin_panel_settings: Command Center":
     st.title("Station Command Center")
     st.markdown("Real-time intelligence synced with regional police database.")
     
+    # Fetch real counts from DB
+    conn = sqlite3.connect("nyaya_records.db")
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM fir_archives")
+    total_cases = c.fetchone()[0]
+    conn.close()
+    
     with st.container(border=True):
         m1, m2, m3 = st.columns(3)
-        m1.metric("Pending Intakes", "142", "+12%")
+        m1.metric("Total Archived Cases", str(total_cases), "+1 Today")
         m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
         m3.metric("Avg. Resolution", "14m", "-2m")
     
@@ -228,15 +267,28 @@ if choice == ":material/admin_panel_settings: Command Center":
 
 elif choice == ":material/assignment: FIR Archives":
     st.title("Station FIR Archives")
-    st.markdown("Centralized database of all processed complaints.")
-    cases = pd.DataFrame({
-        "FIR ID": ["NY-882", "NY-881", "NY-879", "NY-878"],
-        "Date": ["08-03-2026", "07-03-2026", "06-03-2026", "06-03-2026"],
-        "Status": ["Verified", "Pending Review", "Flagged (Fake)", "Verified"],
-        "BNS Sections": ["303(2)", "115(1)", "None", "318(4)"],
-        "Investigating Officer": ["Insp. Sharma", "SI Verma", "Insp. Sharma", "SI Yadav"]
-    })
-    st.dataframe(cases, use_container_width=True, hide_index=True)
+    st.markdown("Centralized database of all processed and saved complaints.")
+    
+    # Read LIVE data from SQLite Database
+    conn = sqlite3.connect("nyaya_records.db")
+    query = """
+    SELECT 
+        fir_id as 'FIR ID', 
+        date_filed as 'Date', 
+        status as 'Status', 
+        bns_sections as 'BNS Sections', 
+        officer as 'Investigating Officer',
+        location as 'Location'
+    FROM fir_archives 
+    ORDER BY id DESC
+    """
+    cases = pd.read_sql_query(query, conn)
+    conn.close()
+    
+    if cases.empty:
+        st.info("No cases have been saved to the database yet.")
+    else:
+        st.dataframe(cases, use_container_width=True, hide_index=True)
 
 elif choice == ":material/policy: Evidence Intake":
     st.title("AI Evidence Intake Portal")
@@ -292,6 +344,7 @@ elif choice == ":material/policy: Evidence Intake":
                         
                 real_evidence_hash = hashlib.sha256(combined_binary_data).hexdigest()
                 st.session_state.current_hash = real_evidence_hash # Save in state
+                st.session_state.db_saved = False # Reset DB save state
                 
                 time.sleep(0.5)
                 
@@ -378,10 +431,10 @@ elif choice == ":material/policy: Evidence Intake":
         detected_location = res.get('location', 'Not detected')
         dynamic_gps = get_dynamic_coords(detected_location)
         network_ip = st.session_state.session_ip
+        actual_hash = st.session_state.get('current_hash', hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest())
         
         with st.container(border=True):
             c1, c2 = st.columns(2)
-            actual_hash = st.session_state.get('current_hash', hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest())
             
             with c1:
                 st.markdown("**Evidence SHA-256 Hash:**")
@@ -414,19 +467,21 @@ elif choice == ":material/policy: Evidence Intake":
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # --- QR CODE & DOWNLOAD SECTION ---
-            st.markdown("### Document Export")
+            # --- DOCUMENT EXPORT & DATABASE SAVE SECTION ---
+            st.markdown("### Document Export & Archival")
             
-            qr_col, download_col = st.columns([1, 4])
+            qr_col, action_col = st.columns([1, 4])
             
             with qr_col:
                 qr_data = f"Nyaya AI Security Hash: {actual_hash}"
                 qr_img = generate_qr_code(qr_data)
                 st.image(qr_img, width=120, caption="Scan to Verify Hash")
                 
-            with download_col:
+            with action_col:
                 st.markdown("<br>", unsafe_allow_html=True)
                 pdf_data = create_pdf(edited_draft, actual_hash, dynamic_gps, network_ip) 
+                
+                # 1. Download Button
                 st.download_button(
                     label=":material/download: Export Official FIR Document (PDF)",
                     data=pdf_data,
@@ -435,12 +490,32 @@ elif choice == ":material/policy: Evidence Intake":
                     type="primary",
                     use_container_width=True
                 )
+                
+                # 2. Database Save Button
+                if not st.session_state.get('db_saved', False):
+                    if st.button("💾 Save to Central Database (Archives)", type="secondary", use_container_width=True):
+                        # Save to SQLite
+                        conn = sqlite3.connect("nyaya_records.db")
+                        c = conn.cursor()
+                        new_fir_id = f"NY-{np.random.randint(1000, 9999)}"
+                        curr_date = datetime.now().strftime("%d-%m-%Y")
+                        
+                        c.execute("INSERT INTO fir_archives (fir_id, date_filed, status, bns_sections, officer, location, evidence_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                  (new_fir_id, curr_date, "Verified", res.get('bns_sections', 'N/A'), "admin", detected_location, actual_hash))
+                        conn.commit()
+                        conn.close()
+                        
+                        st.session_state.db_saved = True
+                        st.rerun()
+                else:
+                    st.success("✅ Case successfully archived in the Central Database! You can view it in the 'FIR Archives' tab.")
             
             # --- NEW EVIDENCE INTAKE BUTTON ---
             st.markdown("<br><hr>", unsafe_allow_html=True)
             if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
                 st.session_state.processed = False
                 st.session_state.data = None
+                st.session_state.db_saved = False
                 if 'hindi_draft' in st.session_state:
                     st.session_state.hindi_draft = None
                 if 'current_hash' in st.session_state:
