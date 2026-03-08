@@ -12,7 +12,7 @@ import hashlib
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
-    page_title="Nyaya AI | Secure Portal", 
+    page_title="Nyaya AI | Police Intranet", 
     layout="wide", 
     initial_sidebar_state="expanded"
 )
@@ -66,13 +66,13 @@ if not st.session_state.logged_in:
             st.markdown("<p style='text-align: center; color: #8B949E;'>Department of Legal Affairs & Law Enforcement</p>", unsafe_allow_html=True)
             st.divider()
             
-            st.markdown("#### Authorized Access Only")
+            st.markdown("#### Station Intranet Login")
             officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
             password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
                 if officer_id == "admin" and password == "nyaya2026":
-                    with st.spinner("Verifying credentials..."):
+                    with st.spinner("Verifying credentials & IP integrity..."):
                         time.sleep(1)
                         st.session_state.logged_in = True
                         st.rerun()
@@ -89,18 +89,18 @@ if not st.session_state.logged_in:
 # --- SIDEBAR & LIVE CLOCK ---
 with st.sidebar:
     st.markdown("<h1 style='color: #58A6FF; margin-bottom:0; font-weight: 800; letter-spacing: 1px;'>NYAYA <span style='color:#E6EDF3; font-weight: 300;'>AI</span></h1>", unsafe_allow_html=True)
-    st.caption("LOGGED IN: OFFICER ADMIN")
+    st.caption("DUTY OFFICER: ADMIN")
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # Highly Professional Law Enforcement Tabs
     menu = [
-        ":material/dashboard: Dashboard", 
-        ":material/folder_open: My Cases", 
-        ":material/description: FIR Drafts", 
-        ":material/mic: Secure Evidence", 
-        ":material/person: Profile", 
-        ":material/bar_chart: Reports"
+        ":material/admin_panel_settings: Command Center", 
+        ":material/policy: Evidence Intake", 
+        ":material/assignment: FIR Archives", 
+        ":material/insights: Crime Analytics"
     ]
-    choice = st.radio("Navigation", menu, index=3, label_visibility="collapsed")
+    # Index 1 defaults to Evidence Intake
+    choice = st.radio("Navigation", menu, index=1, label_visibility="collapsed")
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     components.html("""
@@ -122,7 +122,8 @@ with st.sidebar:
         st.rerun()
 
 # --- TABS LOGIC ---
-if choice == ":material/dashboard: Dashboard":
+
+if choice == ":material/admin_panel_settings: Command Center":
     st.title("Station Command Center")
     st.markdown("Real-time intelligence synced with regional police database.")
     
@@ -132,11 +133,9 @@ if choice == ":material/dashboard: Dashboard":
         m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
         m3.metric("Avg. Resolution", "14m", "-2m")
     
-    # --- NAYA FEATURE: LIVE CRIME MAP ---
     col1, col2 = st.columns([2, 1])
     with col1:
         st.subheader("📍 Live Crime Hotspots (Delhi NCR)")
-        # Generating realistic dummy geo-coordinates around Delhi (28.6139, 77.2090)
         map_data = pd.DataFrame(
             np.random.randn(40, 2) / [60, 60] + [28.6139, 77.2090],
             columns=['lat', 'lon']
@@ -149,42 +148,44 @@ if choice == ":material/dashboard: Dashboard":
         st.warning("**Rohini:** Vehicle theft spike detected.")
         st.info("**South Ext:** Normal patrolling active.")
 
-elif choice == ":material/folder_open: My Cases":
-    st.title("Active Case Files")
+elif choice == ":material/assignment: FIR Archives":
+    st.title("Station FIR Archives")
+    st.markdown("Centralized database of all processed complaints.")
     cases = pd.DataFrame({
-        "Case ID": ["NY-882", "NY-881", "NY-879"],
-        "Timestamp": ["07-03-2026", "06-03-2026", "05-03-2026"],
-        "Verification": ["Verified", "Pending", "Flagged"],
-        "BNS Sections": ["303(2)", "115(1)", "318(4)"]
+        "FIR ID": ["NY-882", "NY-881", "NY-879", "NY-878"],
+        "Date": ["08-03-2026", "07-03-2026", "06-03-2026", "06-03-2026"],
+        "Status": ["Verified", "Pending Review", "Flagged (Fake)", "Verified"],
+        "BNS Sections": ["303(2)", "115(1)", "None", "318(4)"],
+        "Investigating Officer": ["Insp. Sharma", "SI Verma", "Insp. Sharma", "SI Yadav"]
     })
     st.dataframe(cases, use_container_width=True, hide_index=True)
 
-elif choice == ":material/mic: Secure Evidence":
-    st.title("Secure Evidence Intake")
-    st.markdown("Capture or upload forensic evidence for AI analysis.")
+elif choice == ":material/policy: Evidence Intake":
+    st.title("AI Evidence Intake Portal")
+    st.markdown("Securely process raw evidence to generate BNS mapped draft reports.")
     
     if not st.session_state.processed:
-        tab1, tab2 = st.tabs(["Record Live Audio", "Upload File"])
+        tab1, tab2 = st.tabs(["🎙️ Direct Voice Record", "📁 Upload Evidence File"])
         
         with tab1:
             st.markdown("##### Direct Voice Input")
             rec = st.audio_input("Tap to start secure recording")
             
         with tab2:
-            st.markdown("##### Upload Existing Recording")
+            st.markdown("##### Upload Existing Audio/Video Extract")
             uploaded_audio = st.file_uploader("Supported: MP3, WAV, M4A", type=['mp3', 'wav', 'm4a'], label_visibility="collapsed")
             if uploaded_audio: st.audio(uploaded_audio)
 
         with st.container(border=True):
             st.markdown("##### Visual Evidence (Optional)")
-            imgs = st.file_uploader("Upload incident photographs", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
+            imgs = st.file_uploader("Upload incident photographs/CCTV screenshots", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
         
         final_audio_bytes = rec.getvalue() if rec else (uploaded_audio.getvalue() if uploaded_audio else None)
 
         if final_audio_bytes:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Initialize AI Forensic Analysis", type="primary", use_container_width=True):
-                with st.spinner("Processing evidence and mapping BNS sections..."):
+            if st.button("Initialize Forensic AI & Mapping", type="primary", use_container_width=True):
+                with st.spinner("Cross-referencing logic and mapping BNS sections..."):
                     audio_path = "temp_audio.wav"
                     with open(audio_path, "wb") as f: f.write(final_audio_bytes)
                     
@@ -216,16 +217,15 @@ elif choice == ":material/mic: Secure Evidence":
             with col1:
                 st.markdown(f"**Incident Location:** {res.get('location')}")
                 st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections')}`")
-                # --- NAYA FEATURE: IPC TO BNS TAG ---
                 st.caption("🔄 *Auto-mapped from legacy IPC sections for officer convenience.*")
                 
             with col2:
                 if score < 40:
-                    st.error(f"⚠️ FLAG: FAKE CASE DETECTED\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason')}")
+                    st.error(f"⚠️ FLAG: FAKE/IRRELEVANT CASE\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason')}")
                 else:
                     st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
-        # --- BHAUKAAL FEATURE: CHAIN OF CUSTODY ---
+        # --- CHAIN OF CUSTODY ---
         st.markdown("### 🔐 Chain of Custody (Cryptographic Metadata)")
         with st.container(border=True):
             c1, c2 = st.columns(2)
@@ -243,7 +243,7 @@ elif choice == ":material/mic: Secure Evidence":
         if score >= 40:
             st.markdown("### Official Draft Review")
             draft_text = res.get('draft_letter', '')
-            edited_draft = st.text_area("Modify AI-generated draft before exporting:", value=draft_text, height=300, label_visibility="collapsed")
+            edited_draft = st.text_area("Modify AI-generated draft before exporting to PDF:", value=draft_text, height=300, label_visibility="collapsed")
             
             pdf_data = create_pdf(edited_draft)
             st.download_button(
@@ -254,8 +254,9 @@ elif choice == ":material/mic: Secure Evidence":
                 type="primary"
             )
 
-elif choice == ":material/bar_chart: Reports":
+elif choice == ":material/insights: Crime Analytics":
     st.title("Jurisdiction Analytics")
+    st.markdown("Week-over-week comparison of registered complaints.")
     with st.container(border=True):
         st.bar_chart(pd.DataFrame(np.random.randint(10, 50, size=(7, 1)), index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]))
 
