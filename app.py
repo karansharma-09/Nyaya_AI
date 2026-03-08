@@ -245,13 +245,27 @@ elif choice == ":material/policy: Evidence Intake":
             draft_text = res.get('draft_letter', '')
             edited_draft = st.text_area("Modify AI-generated draft before exporting to PDF:", value=draft_text, height=300, label_visibility="collapsed")
             
+            # --- 🇮🇳 HINDI TRANSLATION FEATURE ---
+            if 'hindi_draft' not in st.session_state:
+                st.session_state.hindi_draft = None
+                
+            if st.button("🇮🇳 Translate to Official Hindi (For Citizen Verification)", use_container_width=True):
+                with st.spinner("Translating to official legal Hindi..."):
+                    st.session_state.hindi_draft = translate_to_hindi(edited_draft)
+            
+            if st.session_state.hindi_draft:
+                st.markdown("#### Hindi Translation (नागरिक सत्यापन हेतु)")
+                st.info(st.session_state.hindi_draft)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
             pdf_data = create_pdf(edited_draft)
             st.download_button(
                 label=":material/download: Export Official FIR Document (PDF)",
                 data=pdf_data,
                 file_name=f"Nyaya_FIR_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                 mime="application/pdf",
-                type="primary"
+                type="primary",
+                use_container_width=True
             )
 
 elif choice == ":material/insights: Crime Analytics":
@@ -263,4 +277,5 @@ elif choice == ":material/insights: Crime Analytics":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
+
 
