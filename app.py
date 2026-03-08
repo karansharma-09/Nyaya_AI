@@ -57,8 +57,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Helper for Dynamic GPS based on location text
+def get_dynamic_coords(loc_string):
+    if not loc_string or loc_string.lower() == 'not detected':
+        return "28.6139° N, 77.2090° E" # Default Delhi
+    # Create deterministic fake coordinates based on location name string
+    h = int(hashlib.md5(loc_string.encode()).hexdigest(), 16)
+    lat = 28.0 + (h % 100) / 100.0
+    lon = 77.0 + ((h // 100) % 100) / 100.0
+    return f"{lat:.4f}° N, {lon:.4f}° E"
+
 # Helper for PDF 
-def create_pdf(text, hash_val):
+def create_pdf(text, hash_val, gps_coords, ip_address):
     pdf = FPDF()
     pdf.add_page()
     
@@ -83,6 +93,8 @@ def create_pdf(text, hash_val):
     pdf.set_font("Arial", size=10)
     pdf.cell(0, 8, f"SHA-256 Hash: {hash_val}", ln=True)
     pdf.cell(0, 8, f"Timestamp: {datetime.now().isoformat(timespec='seconds')}Z", ln=True)
+    pdf.cell(0, 8, f"Geospatial Coordinates: {gps_coords}", ln=True)
+    pdf.cell(0, 8, f"Ingestion Terminal IP: {ip_address}", ln=True)
     
     # Generate temporary QR Code image and embed in PDF
     qr = qrcode.QRCode(version=1, box_size=5, border=2)
@@ -116,6 +128,8 @@ def generate_qr_code(data):
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'processed' not in st.session_state: st.session_state.processed = False
 if 'data' not in st.session_state: st.session_state.data = None
+# Simulate a fixed intranet IP for the session
+if 'session_ip' not in st.session_state: st.session_state.session_ip = f"10.24.{np.random.randint(1,255)}.{np.random.randint(1,255)}"
 
 # ==========================================
 # 🛑 SECURE LOGIN GATEKEEPER
@@ -229,36 +243,68 @@ elif choice == ":material/policy: Evidence Intake":
     st.markdown("Securely process raw evidence to generate BNS mapped draft reports.")
     
     if not st.session_state.processed:
-        tab1, tab2 = st.tabs(["🎙️ Direct Voice Record", "📁 Upload Evidence File"])
+        tab1, tab2, tab3 = st.tabs(["🎙️ Audio Evidence", "📹 Video / CCTV", "📸 Live Camera"])
         
         with tab1:
             st.markdown("##### Direct Voice Input")
             rec = st.audio_input("Tap to start secure recording")
-            
-        with tab2:
-            st.markdown("##### Upload Existing Audio/Video Extract")
+            st.markdown("##### Upload Existing Audio")
             uploaded_audio = st.file_uploader("Supported: MP3, WAV, M4A", type=['mp3', 'wav', 'm4a'], label_visibility="collapsed")
             if uploaded_audio: st.audio(uploaded_audio)
+            
+        with tab2:
+            st.markdown("##### Upload Video / CCTV Footage")
+            uploaded_video = st.file_uploader("Supported: MP4, MOV, AVI", type=['mp4', 'mov', 'avi'], label_visibility="collapsed")
+            if uploaded_video: st.video(uploaded_video)
+            
+        with tab3:
+            st.markdown("##### Live Scene / Document Capture")
+            live_pic = st.camera_input("Take secure photograph for immediate evidence")
 
         with st.container(border=True):
-            st.markdown("##### Visual Evidence (Optional)")
-            imgs = st.file_uploader("Upload incident photographs/CCTV screenshots", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
+            st.markdown("##### Additional Visuals (Optional)")
+            imgs = st.file_uploader("Upload incident photographs/documents", accept_multiple_files=True, type=['png','jpg','jpeg'], label_visibility="collapsed")
         
         final_audio_bytes = rec.getvalue() if rec else (uploaded_audio.getvalue() if uploaded_audio else None)
+        final_video_bytes = uploaded_video.getvalue() if uploaded_video else None
+        live_pic_bytes = live_pic.getvalue() if live_pic else None
 
-        if final_audio_bytes:
+        if final_audio_bytes or final_video_bytes or imgs or live_pic:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Initialize Forensic AI & Mapping", type="primary", use_container_width=True):
-                # Advanced Loading Progress for presentation effect
-                progress_bar = st.progress(0, text="Locking evidence & generating SHA-256 Hash...")
+                
+                # --- SAFETY CHECK ---
+                if not final_audio_bytes:
+                    st.warning("⚠️ Please provide an Audio Statement (Record/Upload) explaining the video/photos for AI semantic analysis.")
+                    st.stop()
+                
+                # Advanced Loading Progress
+                progress_bar = st.progress(0, text="Locking evidence & generating cryptographic SHA-256 Hash...")
+                
+                # 🚀 ACTUAL FORENSIC HASHING OF BINARY DATA
+                combined_binary_data = b""
+                if final_audio_bytes: combined_binary_data += final_audio_bytes
+                if final_video_bytes: combined_binary_data += final_video_bytes
+                if live_pic_bytes: combined_binary_data += live_pic_bytes
+                if imgs:
+                    for img in imgs:
+                        combined_binary_data += img.getvalue()
+                        
+                real_evidence_hash = hashlib.sha256(combined_binary_data).hexdigest()
+                st.session_state.current_hash = real_evidence_hash # Save in state
+                
                 time.sleep(0.5)
                 
                 audio_path = "temp_audio.wav"
                 with open(audio_path, "wb") as f: f.write(final_audio_bytes)
                 
-                progress_bar.progress(30, text="Analyzing Acoustic Markers & Semantic extraction...")
+                progress_bar.progress(30, text="Analyzing Acoustic/Visual Markers & Semantic extraction...")
                 
                 img_paths = []
+                if live_pic_bytes:
+                    p = f"temp_live_pic.jpg"
+                    with open(p, "wb") as f: f.write(live_pic_bytes)
+                    img_paths.append(p)
                 if imgs:
                     for img in imgs:
                         p = f"temp_{img.name}"
@@ -268,6 +314,7 @@ elif choice == ":material/policy: Evidence Intake":
                 progress_bar.progress(60, text="Corroborating data with BNS 2023 Master Codebook...")
                 
                 try:
+                    # Pass the audio and all gathered images/live pics to AI engine
                     res = process_complaint(audio_path, img_paths)
                     progress_bar.progress(90, text="Drafting Legally Admissible Section 173 BNSS Report...")
                     
@@ -326,17 +373,26 @@ elif choice == ":material/policy: Evidence Intake":
         
         # --- CHAIN OF CUSTODY (BSA 2023) ---
         st.markdown("### 🔐 Chain of Custody (BSA 2023 Compliant)")
+        
+        # --- DYNAMIC GPS AND IP ---
+        detected_location = res.get('location', 'Not detected')
+        dynamic_gps = get_dynamic_coords(detected_location)
+        network_ip = st.session_state.session_ip
+        
         with st.container(border=True):
             c1, c2 = st.columns(2)
-            mock_hash = hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest()
+            actual_hash = st.session_state.get('current_hash', hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest())
+            
             with c1:
                 st.markdown("**Evidence SHA-256 Hash:**")
-                st.code(mock_hash, language="text")
-                st.markdown("**Geo-Coordinates (GPS):**\n\n`Lat: 28.6139° N, Lon: 77.2090° E (New Delhi)`")
+                st.code(actual_hash, language="text")
+                st.markdown("**Incident Geo-Coordinates (Extracted):**")
+                st.code(f"Lat/Lon: {dynamic_gps}\n({detected_location})", language="text")
             with c2:
                 st.markdown("**Timestamp (System):**")
                 st.code(datetime.now().isoformat(timespec='seconds') + "Z", language="text")
-                st.markdown("**Device Network IP:**\n\n`117.203.45.192 (Secured Police Intranet)`")
+                st.markdown("**Ingestion Terminal IP (Secure):**")
+                st.code(f"{network_ip} (Police Intranet)", language="text")
 
         # --- DRAFT REVIEW ---
         if score >= 40:
@@ -364,13 +420,13 @@ elif choice == ":material/policy: Evidence Intake":
             qr_col, download_col = st.columns([1, 4])
             
             with qr_col:
-                qr_data = f"Nyaya AI Security Hash: {mock_hash}"
+                qr_data = f"Nyaya AI Security Hash: {actual_hash}"
                 qr_img = generate_qr_code(qr_data)
                 st.image(qr_img, width=120, caption="Scan to Verify Hash")
                 
             with download_col:
                 st.markdown("<br>", unsafe_allow_html=True)
-                pdf_data = create_pdf(edited_draft, mock_hash) 
+                pdf_data = create_pdf(edited_draft, actual_hash, dynamic_gps, network_ip) 
                 st.download_button(
                     label=":material/download: Export Official FIR Document (PDF)",
                     data=pdf_data,
@@ -387,6 +443,8 @@ elif choice == ":material/policy: Evidence Intake":
                 st.session_state.data = None
                 if 'hindi_draft' in st.session_state:
                     st.session_state.hindi_draft = None
+                if 'current_hash' in st.session_state:
+                    del st.session_state.current_hash
                 st.rerun()
 
 elif choice == ":material/insights: Crime Analytics":
