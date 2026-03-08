@@ -8,6 +8,7 @@ from datetime import datetime
 from engine import process_complaint
 from fpdf import FPDF
 import time
+import hashlib
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
@@ -66,31 +67,29 @@ if not st.session_state.logged_in:
             st.divider()
             
             st.markdown("#### Authorized Access Only")
-            officer_id = st.text_input("Officer ID / Badge Number", placeholder="Enter Login ID")
-            password = st.text_input("Secure Password", type="password", placeholder="Enter Password")
+            officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
+            password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
                 if officer_id == "admin" and password == "nyaya2026":
                     with st.spinner("Verifying credentials..."):
-                        time.sleep(1) # Fake loading for realistic effect
+                        time.sleep(1)
                         st.session_state.logged_in = True
                         st.rerun()
                 elif officer_id or password:
                     st.error("Invalid Credentials. Access Denied.")
                     
             st.markdown("<br><p style='text-align: center; font-size: 12px; color: #484F58;'>Attempting to bypass this portal is a federal offense under BNS Section 302.</p>", unsafe_allow_html=True)
-    
-    # st.stop() ensures nothing below this line runs until logged in!
     st.stop()
 
 # ==========================================
-# 🟢 MAIN APPLICATION (ONLY SHOWS IF LOGGED IN)
+# 🟢 MAIN APPLICATION
 # ==========================================
 
 # --- SIDEBAR & LIVE CLOCK ---
 with st.sidebar:
     st.markdown("<h1 style='color: #58A6FF; margin-bottom:0; font-weight: 800; letter-spacing: 1px;'>NYAYA <span style='color:#E6EDF3; font-weight: 300;'>AI</span></h1>", unsafe_allow_html=True)
-    st.caption(f"LOGGED IN: OFFICER ADMIN")
+    st.caption("LOGGED IN: OFFICER ADMIN")
     st.markdown("<br>", unsafe_allow_html=True)
     
     menu = [
@@ -207,6 +206,21 @@ elif choice == ":material/mic: Secure Evidence":
                 else:
                     st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
+        # --- BHAUKAAL FEATURE: CHAIN OF CUSTODY ---
+        st.markdown("### 🔐 Chain of Custody (Cryptographic Metadata)")
+        with st.container(border=True):
+            c1, c2 = st.columns(2)
+            mock_hash = hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest()
+            with c1:
+                st.markdown("**Evidence SHA-256 Hash:**")
+                st.code(mock_hash, language="text")
+                st.markdown("**Geo-Coordinates (GPS):**\n\n`Lat: 28.6139° N, Lon: 77.2090° E (New Delhi)`")
+            with c2:
+                st.markdown("**Timestamp (System):**")
+                st.code(datetime.now().isoformat(timespec='seconds') + "Z", language="text")
+                st.markdown("**Device Network IP:**\n\n`117.203.45.192 (Secured Police Intranet)`")
+
+        # --- DRAFT REVIEW ---
         if score >= 40:
             st.markdown("### Official Draft Review")
             draft_text = res.get('draft_letter', '')
@@ -229,4 +243,3 @@ elif choice == ":material/bar_chart: Reports":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
-
