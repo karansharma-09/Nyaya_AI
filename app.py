@@ -67,7 +67,7 @@ if not st.session_state.logged_in:
             st.divider()
             
             st.markdown("#### Authorized Access Only")
-            officer_id = st.text_input("Officer ID / Badge Number", placeholder="Enter Login ID")
+            officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
             password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
@@ -125,13 +125,29 @@ with st.sidebar:
 if choice == ":material/dashboard: Dashboard":
     st.title("Station Command Center")
     st.markdown("Real-time intelligence synced with regional police database.")
+    
     with st.container(border=True):
         m1, m2, m3 = st.columns(3)
         m1.metric("Pending Intakes", "142", "+12%")
         m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
         m3.metric("Avg. Resolution", "14m", "-2m")
-    st.subheader("Regional Crime Trends (24H)")
-    st.line_chart(pd.DataFrame(np.random.randn(24, 3), columns=['Theft', 'Assault', 'Cyber']))
+    
+    # --- NAYA FEATURE: LIVE CRIME MAP ---
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.subheader("📍 Live Crime Hotspots (Delhi NCR)")
+        # Generating realistic dummy geo-coordinates around Delhi (28.6139, 77.2090)
+        map_data = pd.DataFrame(
+            np.random.randn(40, 2) / [60, 60] + [28.6139, 77.2090],
+            columns=['lat', 'lon']
+        )
+        st.map(map_data, zoom=10, use_container_width=True)
+    
+    with col2:
+        st.subheader("⚠️ Alert Zones")
+        st.error("**CP Area:** High Cyber Fraud cases reported in last 2H.")
+        st.warning("**Rohini:** Vehicle theft spike detected.")
+        st.info("**South Ext:** Normal patrolling active.")
 
 elif choice == ":material/folder_open: My Cases":
     st.title("Active Case Files")
@@ -200,6 +216,9 @@ elif choice == ":material/mic: Secure Evidence":
             with col1:
                 st.markdown(f"**Incident Location:** {res.get('location')}")
                 st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections')}`")
+                # --- NAYA FEATURE: IPC TO BNS TAG ---
+                st.caption("🔄 *Auto-mapped from legacy IPC sections for officer convenience.*")
+                
             with col2:
                 if score < 40:
                     st.error(f"⚠️ FLAG: FAKE CASE DETECTED\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason')}")
@@ -243,4 +262,3 @@ elif choice == ":material/bar_chart: Reports":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
-
