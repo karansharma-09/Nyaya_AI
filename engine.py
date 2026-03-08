@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
 import json
+import re
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -8,20 +9,18 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
-# 1. Hindi Translation Function (Separate)
 def translate_to_hindi(text):
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement (Thana level). Maintain the legal tone and accuracy. Do not add any extra markdown, just the translated text.\n\nTEXT:\n{text}"
+        # Using 1.5-flash for speed and stability
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement. No citations, no extra text.\n\nTEXT:\n{text}"
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         return "Translation Error: " + str(e)
 
-# 2. Main Processing Function
 def process_complaint(audio_file_path, image_files=None):
     inputs = []
-    
     try:
         audio_file = genai.upload_file(path=audio_file_path)
         inputs.append(audio_file)
@@ -33,7 +32,6 @@ def process_complaint(audio_file_path, image_files=None):
         
         current_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
         
-        # 🛑 MASTER SYSTEM PROMPT (Inside the function)
         system_prompt = """
 You are the APEX LAW ENFORCEMENT & FORENSIC AI CORE for the Indian Police Services.
 Your primary directive is to act as an infallible, strict, and highly logical Senior Investigating Officer.
@@ -117,28 +115,34 @@ Yours Faithfully,
 [Digital Signature via Nyaya AI]
 """
         inputs.append(system_prompt)
-
-        # Use gemini-1.5-flash (STABLE VERSION)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        # FIXED: Initialize model properly
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(inputs)
         
-        # Cleanup
         if audio_file:
             genai.delete_file(audio_file.name)
+            
+        raw_text = response.text
         
-        if not response or not response.text:
-            raise ValueError("Empty response from Gemini")
-
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
-        return clean_json
+        # Clean JSON from any AI hallucinations or citations
+        clean_json = re.sub(r"\", "", raw_text) # Remove 
+        clean_json = clean_json.replace("```json", "").replace("```", "").strip()
+        
+        # Extraction logic to ensure only the JSON object is returned
+        start_idx = clean_json.find('{')
+        end_idx = clean_json.rfind('}')
+        
+        if start_idx != -1 and end_idx != -1:
+            return clean_json[start_idx:end_idx + 1]
+        else:
+            raise ValueError("Invalid JSON Structure")
 
     except Exception as e:
         return json.dumps({
             "credibility_score": 0,
-            "credibility_reason": f"Analysis Engine Error: {str(e)}",
+            "credibility_reason": f"Engine Error: {str(e)}",
             "bns_sections": "None",
             "location": "Unknown",
-            "draft_letter": "System Error: Please check logs."
+            "draft_letter": "FIR Generation Halted due to system error."
         })
-
-
