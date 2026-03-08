@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from engine import process_complaint
+from engine import process_complaint, translate_to_hindi
 from fpdf import FPDF
 import time
 import hashlib
@@ -263,3 +263,4 @@ elif choice == ":material/insights: Crime Analytics":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
+
