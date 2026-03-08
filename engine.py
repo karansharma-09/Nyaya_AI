@@ -125,6 +125,6 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
     # Clean the JSON response
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
     return clean_json
-    return clean_json
+
 
 
