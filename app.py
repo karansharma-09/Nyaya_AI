@@ -311,6 +311,15 @@ elif choice == ":material/policy: Evidence Intake":
                     type="primary",
                     use_container_width=True
                 )
+            
+            # --- NAYA EVIDENCE ADD KARNE KE LIYE RESET BUTTON ---
+            st.markdown("<br><hr>", align="center", unsafe_allow_html=True)
+            if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
+                st.session_state.processed = False
+                st.session_state.data = None
+                if 'hindi_draft' in st.session_state:
+                    st.session_state.hindi_draft = None
+                st.rerun()
 
 elif choice == ":material/insights: Crime Analytics":
     st.title("Jurisdiction Analytics")
