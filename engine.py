@@ -11,7 +11,7 @@ genai.configure(api_key=api_key)
 # 1. Hindi Translation Function (Separate)
 def translate_to_hindi(text):
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement (Thana level). Maintain the legal tone and accuracy. Do not add any extra markdown, just the translated text.\n\nTEXT:\n{text}"
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -132,3 +132,4 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
             "location": "Unknown",
             "draft_letter": "System Error: Please check logs."
         })
+
