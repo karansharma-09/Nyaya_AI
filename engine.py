@@ -1,5 +1,6 @@
 import os
 import google.generativeai as genai
+import json
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -7,29 +8,33 @@ load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
-def process_complaint(audio_file_path, image_files=None):
-    inputs = []
-    
-    audio_file = genai.upload_file(path=audio_file_path)
-    inputs.append(audio_file)
-    
-    if image_files:
-        for img_path in image_files:
-            uploaded_img = genai.upload_file(path=img_path)
-            inputs.append(uploaded_img)
-    
-    current_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+# 1. Hindi Translation Function (Separate)
 def translate_to_hindi(text):
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement (Thana level). Maintain the legal tone and accuracy. Do not add any extra markdown, just the translated text.\n\nTEXT:\n{text}"
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         return "Translation Error: " + str(e)
+
+# 2. Main Processing Function
+def process_complaint(audio_file_path, image_files=None):
+    inputs = []
     
-    # 🛑 STRICT SYSTEM PROMPT
-    system_prompt = """
+    try:
+        audio_file = genai.upload_file(path=audio_file_path)
+        inputs.append(audio_file)
+        
+        if image_files:
+            for img_path in image_files:
+                uploaded_img = genai.upload_file(path=img_path)
+                inputs.append(uploaded_img)
+        
+        current_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+        
+        # 🛑 MASTER SYSTEM PROMPT (Inside the function)
+        system_prompt = """
 You are the APEX LAW ENFORCEMENT & FORENSIC AI CORE for the Indian Police Services.
 Your primary directive is to act as an infallible, strict, and highly logical Senior Investigating Officer.
 You are evaluating multimodal evidence (Audio Transcripts + Images) to determine if a valid cognizable offense has occurred under the NEW BHARATIYA NYAYA SANHITA, 2023 (BNS).
@@ -103,28 +108,27 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
     "draft_letter": "<Formal FIR English text OR 'FIR Generation Halted. [Reason]'>"
 }
 """
-    inputs.append(system_prompt)
+        inputs.append(system_prompt)
 
-    model = genai.GenerativeModel('gemini-2.5-flash')
-    response = model.generate_content(inputs)
-    
-    # Safely delete the file from Gemini server
-    if audio_file:
-        genai.delete_file(audio_file.name)
-    
-    # --- SAFETY CHECK FOR NONE TYPE ---
-    if not response or not response.text:
+        # Use gemini-1.5-flash (STABLE VERSION)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        response = model.generate_content(inputs)
+        
+        # Cleanup
+        if audio_file:
+            genai.delete_file(audio_file.name)
+        
+        if not response or not response.text:
+            raise ValueError("Empty response from Gemini")
+
+        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        return clean_json
+
+    except Exception as e:
         return json.dumps({
             "credibility_score": 0,
-            "credibility_reason": "ERROR: AI Response was empty. Please try again.",
+            "credibility_reason": f"Analysis Engine Error: {str(e)}",
             "bns_sections": "None",
             "location": "Unknown",
-            "draft_letter": "System Error: AI could not process the audio."
+            "draft_letter": "System Error: Please check logs."
         })
-
-    # Clean the JSON response
-    clean_json = response.text.replace("```json", "").replace("```", "").strip()
-    return clean_json
-
-
-
