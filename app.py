@@ -67,7 +67,7 @@ if not st.session_state.logged_in:
             st.divider()
             
             st.markdown("#### Authorized Access Only")
-            officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
+            officer_id = st.text_input("Officer ID / Badge Number", placeholder="Enter Login ID")
             password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
@@ -243,3 +243,4 @@ elif choice == ":material/bar_chart: Reports":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
+
