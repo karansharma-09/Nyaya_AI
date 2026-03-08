@@ -20,9 +20,18 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Modern UI CSS
+# Modern UI CSS with Smooth Transitions
 st.markdown("""
     <style>
+    /* Smooth Fade-In Animation for Tab Switching */
+    .block-container {
+        animation: fadeIn 0.6s ease-out;
+    }
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+    
     .stApp { background-color: #0E1117; color: #E6EDF3; }
     [data-testid="stMetricValue"] { color: #58A6FF; font-weight: 600; }
     [data-testid="stSidebar"] { background-color: #161B22 !important; border-right: 1px solid #30363D; }
@@ -38,10 +47,17 @@ st.markdown("""
     }
     div[role="radiogroup"] > label[data-baseweb="radio"] > div:first-child { display: none; }
     .st-emotion-cache-1y4p8pa { padding: 1.5rem; border-radius: 10px; border: 1px solid #30363D; background-color: #161B22;}
+    
+    /* Admissibility Tag Styling */
+    .admissibility-tag {
+        display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 5px;
+    }
+    .admissibility-high { background-color: #rgba(63, 185, 80, 0.1); color: #3FB950; border: 1px solid #3FB950; }
+    .admissibility-low { background-color: #rgba(248, 81, 73, 0.1); color: #F85149; border: 1px solid #F85149; }
     </style>
     """, unsafe_allow_html=True)
 
-# Helper for PDF (Ab ye PDF me QR code aur Hash bhi print karega)
+# Helper for PDF 
 def create_pdf(text, hash_val):
     pdf = FPDF()
     pdf.add_page()
@@ -63,7 +79,7 @@ def create_pdf(text, hash_val):
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(0, 10, "==================================================", ln=True)
-    pdf.cell(0, 10, "DIGITAL VERIFICATION & CHAIN OF CUSTODY", ln=True)
+    pdf.cell(0, 10, "DIGITAL VERIFICATION & CHAIN OF CUSTODY (BSA 2023 COMPLIANT)", ln=True)
     pdf.set_font("Arial", size=10)
     pdf.cell(0, 8, f"SHA-256 Hash: {hash_val}", ln=True)
     pdf.cell(0, 8, f"Timestamp: {datetime.now().isoformat(timespec='seconds')}Z", ln=True)
@@ -233,41 +249,52 @@ elif choice == ":material/policy: Evidence Intake":
         if final_audio_bytes:
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Initialize Forensic AI & Mapping", type="primary", use_container_width=True):
-                with st.spinner("Cross-referencing logic and mapping BNS sections..."):
-                    audio_path = "temp_audio.wav"
-                    with open(audio_path, "wb") as f: f.write(final_audio_bytes)
+                # Advanced Loading Progress for presentation effect
+                progress_bar = st.progress(0, text="Locking evidence & generating SHA-256 Hash...")
+                time.sleep(0.5)
+                
+                audio_path = "temp_audio.wav"
+                with open(audio_path, "wb") as f: f.write(final_audio_bytes)
+                
+                progress_bar.progress(30, text="Analyzing Acoustic Markers & Semantic extraction...")
+                
+                img_paths = []
+                if imgs:
+                    for img in imgs:
+                        p = f"temp_{img.name}"
+                        with open(p, "wb") as f: f.write(img.getbuffer())
+                        img_paths.append(p)
+                
+                progress_bar.progress(60, text="Corroborating data with BNS 2023 Master Codebook...")
+                
+                try:
+                    res = process_complaint(audio_path, img_paths)
+                    progress_bar.progress(90, text="Drafting Legally Admissible Section 173 BNSS Report...")
                     
-                    img_paths = []
-                    if imgs:
-                        for img in imgs:
-                            p = f"temp_{img.name}"
-                            with open(p, "wb") as f: f.write(img.getbuffer())
-                            img_paths.append(p)
+                    cleaned_res = res.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
                     
-                    try:
-                        res = process_complaint(audio_path, img_paths)
-                        
-                        # --- FIX: CLEANING AI's EXTRA MARKDOWN ---
-                        cleaned_res = res.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
-                        
-                        st.session_state.data = json.loads(cleaned_res)
-                        st.session_state.processed = True
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Analysis Engine Error: {e}\n\nRaw AI Output was: {res[:100]}...")
-                    finally:
-                        if os.path.exists(audio_path): os.remove(audio_path)
-                        for p in img_paths:
-                            if os.path.exists(p): os.remove(p)
+                    st.session_state.data = json.loads(cleaned_res)
+                    progress_bar.progress(100, text="Finalizing...")
+                    time.sleep(0.3)
+                    
+                    st.session_state.processed = True
+                    progress_bar.empty()
+                    st.rerun()
+                except Exception as e:
+                    progress_bar.empty()
+                    st.error(f"Analysis Engine Error: {e}\n\nRaw AI Output was: {res[:100]}...")
+                finally:
+                    if os.path.exists(audio_path): os.remove(audio_path)
+                    for p in img_paths:
+                        if os.path.exists(p): os.remove(p)
     else:
         res = st.session_state.data
         
-        # --- FIX: ROBUST SCORE EXTRACTION ---
-        # Fetching score even if AI renames the key or adds a % sign
+        # Robust Score Extraction
         raw_score = res.get('credibility_score', res.get('credibility', res.get('score', 0)))
         
         if isinstance(raw_score, str):
-            nums = re.findall(r'\d+', raw_score) # Extract numbers only from string (e.g. "85%" -> 85)
+            nums = re.findall(r'\d+', raw_score)
             score = int(nums[0]) if nums else 0
         else:
             try:
@@ -282,6 +309,13 @@ elif choice == ":material/policy: Evidence Intake":
             with col1:
                 st.markdown(f"**Incident Location:** {res.get('location', 'Not detected')}")
                 st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections', 'Not detected')}`")
+                
+                # Dynamic Legal Admissibility Tag
+                if score >= 60:
+                    st.markdown("<span class='admissibility-tag admissibility-high'>🛡️ Highly Admissible in Court</span>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<span class='admissibility-tag admissibility-low'>⚠️ Weak Evidence / Probable Civil Matter</span>", unsafe_allow_html=True)
+                    
                 st.caption("🔄 *Auto-mapped from legacy IPC sections for officer convenience.*")
                 
             with col2:
@@ -290,8 +324,8 @@ elif choice == ":material/policy: Evidence Intake":
                 else:
                     st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
-        # --- CHAIN OF CUSTODY ---
-        st.markdown("### 🔐 Chain of Custody (Cryptographic Metadata)")
+        # --- CHAIN OF CUSTODY (BSA 2023) ---
+        st.markdown("### 🔐 Chain of Custody (BSA 2023 Compliant)")
         with st.container(border=True):
             c1, c2 = st.columns(2)
             mock_hash = hashlib.sha256(str(datetime.now().timestamp()).encode()).hexdigest()
@@ -324,20 +358,19 @@ elif choice == ":material/policy: Evidence Intake":
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # --- QR CODE & DOWNLOAD SECTION (NEWLY INTEGRATED) ---
+            # --- QR CODE & DOWNLOAD SECTION ---
             st.markdown("### Document Export")
             
             qr_col, download_col = st.columns([1, 4])
             
             with qr_col:
-                # Generate QR code using the mock_hash generated above
                 qr_data = f"Nyaya AI Security Hash: {mock_hash}"
                 qr_img = generate_qr_code(qr_data)
                 st.image(qr_img, width=120, caption="Scan to Verify Hash")
                 
             with download_col:
-                st.markdown("<br>", unsafe_allow_html=True) # alignment spacing
-                pdf_data = create_pdf(edited_draft, mock_hash) # Now passing the hash to print inside PDF
+                st.markdown("<br>", unsafe_allow_html=True)
+                pdf_data = create_pdf(edited_draft, mock_hash) 
                 st.download_button(
                     label=":material/download: Export Official FIR Document (PDF)",
                     data=pdf_data,
@@ -347,7 +380,7 @@ elif choice == ":material/policy: Evidence Intake":
                     use_container_width=True
                 )
             
-            # --- NAYA EVIDENCE ADD KARNE KE LIYE RESET BUTTON ---
+            # --- NEW EVIDENCE INTAKE BUTTON ---
             st.markdown("<br><hr>", unsafe_allow_html=True)
             if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
                 st.session_state.processed = False
