@@ -19,6 +19,14 @@ def process_complaint(audio_file_path, image_files=None):
             inputs.append(uploaded_img)
     
     current_time = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
+def translate_to_hindi(text):
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement (Thana level). Maintain the legal tone and accuracy. Do not add any extra markdown, just the translated text.\n\nTEXT:\n{text}"
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return "Translation Error: " + str(e)
     
     # 🛑 STRICT SYSTEM PROMPT
     system_prompt = """
@@ -105,3 +113,4 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
     clean_json = response.text.replace("```json", "").replace("```", "").strip()
 
     return clean_json
+
