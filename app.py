@@ -9,8 +9,9 @@ from engine import process_complaint, translate_to_hindi
 from fpdf import FPDF
 import time
 import hashlib
-import qrcode          # NEWLY ADDED
-from io import BytesIO # NEWLY ADDED
+import qrcode
+from io import BytesIO
+import re # NEWLY ADDED FOR SCORE FIX
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
@@ -221,21 +222,36 @@ elif choice == ":material/policy: Evidence Intake":
                         st.error(f"Analysis Engine Error: {e}\n\nRaw AI Output was: {res[:100]}...")
                     finally:
                         if os.path.exists(audio_path): os.remove(audio_path)
+                        for p in img_paths:
+                            if os.path.exists(p): os.remove(p)
     else:
         res = st.session_state.data
-        score = res.get('credibility_score', 0)
+        
+        # --- FIX: ROBUST SCORE EXTRACTION ---
+        # Fetching score even if AI renames the key or adds a % sign
+        raw_score = res.get('credibility_score', res.get('credibility', res.get('score', 0)))
+        
+        if isinstance(raw_score, str):
+            nums = re.findall(r'\d+', raw_score) # Extract numbers only from string (e.g. "85%" -> 85)
+            score = int(nums[0]) if nums else 0
+        else:
+            try:
+                score = int(raw_score)
+            except:
+                score = 0
+                
         st.subheader("Intelligence Report Generated")
         
         with st.container(border=True):
             col1, col2 = st.columns([1.5, 1])
             with col1:
-                st.markdown(f"**Incident Location:** {res.get('location')}")
-                st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections')}`")
+                st.markdown(f"**Incident Location:** {res.get('location', 'Not detected')}")
+                st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections', 'Not detected')}`")
                 st.caption("🔄 *Auto-mapped from legacy IPC sections for officer convenience.*")
                 
             with col2:
                 if score < 40:
-                    st.error(f"⚠️ FLAG: FAKE/IRRELEVANT CASE\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason')}")
+                    st.error(f"⚠️ FLAG: FAKE/IRRELEVANT CASE\n\n**Credibility:** {score}%\n\n**Reason:** {res.get('credibility_reason', 'Review needed')}")
                 else:
                     st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
@@ -305,4 +321,3 @@ elif choice == ":material/insights: Crime Analytics":
 else:
     st.title(choice.split(": ")[-1])
     st.info("Module ready. Awaiting secure network connection.")
-
