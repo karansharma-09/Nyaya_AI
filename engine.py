@@ -12,7 +12,7 @@ genai.configure(api_key=api_key)
 def translate_to_hindi(text):
     try:
         # Using 1.5-flash for speed and stability
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"Translate the following formal police FIR draft strictly into official Hindi used by Indian law enforcement. No citations, no extra text.\n\nTEXT:\n{text}"
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -113,11 +113,20 @@ It is requested that an FIR be registered against the accused under Section [Sec
 
 Yours Faithfully,
 [Digital Signature via Nyaya AI]
+
+OUTPUT FORMAT (JSON ONLY):
+Output MUST be strictly valid JSON without markdown wrapping. Do not include any tags like [source].
+{
+    "credibility_score": <int>,
+    "credibility_reason": "<string>",
+    "bns_sections": "<string>",
+    "location": "<string>",
+    "draft_letter": "<string>"
+}
 """
         inputs.append(system_prompt)
         
-        # FIXED: Initialize model properly
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(inputs)
         
         if audio_file:
@@ -126,7 +135,7 @@ Yours Faithfully,
         raw_text = response.text
         
         # Clean JSON from any AI hallucinations or citations
-        clean_json = re.sub(r"\", "", raw_text) # Remove 
+        clean_json = re.sub(r"\", "", raw_text) # Fixed Regex for source tags
         clean_json = clean_json.replace("```json", "").replace("```", "").strip()
         
         # Extraction logic to ensure only the JSON object is returned
