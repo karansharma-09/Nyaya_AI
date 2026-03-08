@@ -11,7 +11,7 @@ import time
 import hashlib
 import qrcode
 from io import BytesIO
-import re # NEWLY ADDED FOR SCORE FIX
+import re
 
 # --- CONFIG & RESPONSIVE SETTINGS ---
 st.set_page_config(
@@ -41,17 +41,52 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Helper for PDF
-def create_pdf(text):
+# Helper for PDF (Ab ye PDF me QR code aur Hash bhi print karega)
+def create_pdf(text, hash_val):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Official Header
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "FIRST INFORMATION REPORT (FIR)", ln=True, align='C')
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 10, "Generated via Nyaya AI Law Enforcement Core", ln=True, align='C')
+    pdf.ln(5)
+    
+    # Main Draft Body
     pdf.set_font("Arial", size=11)
     clean_text = text.encode('latin-1', 'ignore').decode('latin-1')
     for line in clean_text.split('\n'):
         pdf.multi_cell(0, 10, txt=line, align='L')
+        
+    # Add Security Section at the end
+    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 10, "==================================================", ln=True)
+    pdf.cell(0, 10, "DIGITAL VERIFICATION & CHAIN OF CUSTODY", ln=True)
+    pdf.set_font("Arial", size=10)
+    pdf.cell(0, 8, f"SHA-256 Hash: {hash_val}", ln=True)
+    pdf.cell(0, 8, f"Timestamp: {datetime.now().isoformat(timespec='seconds')}Z", ln=True)
+    
+    # Generate temporary QR Code image and embed in PDF
+    qr = qrcode.QRCode(version=1, box_size=5, border=2)
+    qr.add_data(f"Nyaya AI Security Hash: {hash_val}")
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    temp_qr_path = f"temp_qr_{int(time.time())}.png"
+    img.save(temp_qr_path)
+    
+    # Embed image (width=30)
+    pdf.image(temp_qr_path, w=30)
+    
+    # Cleanup temporary image file
+    if os.path.exists(temp_qr_path):
+        os.remove(temp_qr_path)
+        
     return pdf.output(dest='S').encode('latin-1')
 
-# --- NEW HELPER FOR QR CODE ---
+# --- NEW HELPER FOR UI QR CODE ---
 def generate_qr_code(data):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(data)
@@ -302,7 +337,7 @@ elif choice == ":material/policy: Evidence Intake":
                 
             with download_col:
                 st.markdown("<br>", unsafe_allow_html=True) # alignment spacing
-                pdf_data = create_pdf(edited_draft)
+                pdf_data = create_pdf(edited_draft, mock_hash) # Now passing the hash to print inside PDF
                 st.download_button(
                     label=":material/download: Export Official FIR Document (PDF)",
                     data=pdf_data,
