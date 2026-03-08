@@ -108,9 +108,23 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
     model = genai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(inputs)
     
-    genai.delete_file(audio_file.name)
+    # Safely delete the file from Gemini server
+    if audio_file:
+        genai.delete_file(audio_file.name)
     
-    clean_json = response.text.replace("```json", "").replace("```", "").strip()
+    # --- SAFETY CHECK FOR NONE TYPE ---
+    if not response or not response.text:
+        return json.dumps({
+            "credibility_score": 0,
+            "credibility_reason": "ERROR: AI Response was empty. Please try again.",
+            "bns_sections": "None",
+            "location": "Unknown",
+            "draft_letter": "System Error: AI could not process the audio."
+        })
 
+    # Clean the JSON response
+    clean_json = response.text.replace("```json", "").replace("```", "").strip()
     return clean_json
+    return clean_json
+
 
