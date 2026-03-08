@@ -348,7 +348,7 @@ elif choice == ":material/policy: Evidence Intake":
                 )
             
             # --- NAYA EVIDENCE ADD KARNE KE LIYE RESET BUTTON ---
-            st.markdown("<br><hr>", align="center", unsafe_allow_html=True)
+            st.markdown("<br><hr>", unsafe_allow_html=True)
             if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
                 st.session_state.processed = False
                 st.session_state.data = None
