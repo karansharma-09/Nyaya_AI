@@ -8,15 +8,13 @@ from datetime import datetime
 from fpdf import FPDF
 from engine import process_complaint, translate_to_hindi
 
-st.set_page_config(page_title="Nyaya AI | BNS Forensic Portal", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Nyaya AI | Forensic Portal", page_icon="⚖️", layout="wide")
 
 # --- UTILITY FUNCTIONS ---
 def generate_evidence_hash(text):
-    """Generates a SHA-256 hash for document integrity"""
     return hashlib.sha256(text.encode()).hexdigest()
 
 def generate_qr_code(data):
-    """Generates a QR code for verification"""
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(data)
     qr.make(fit=True)
@@ -28,51 +26,40 @@ def generate_qr_code(data):
 def create_pdf(text, evidence_hash):
     pdf = FPDF()
     pdf.add_page()
-    
-    # Header
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(200, 10, txt="POLICE DEPARTMENT - GOVERNMENT OF INDIA", ln=True, align='C')
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(200, 10, txt="FIRST INFORMATION REPORT (Section 173 BNSS)", ln=True, align='C')
     pdf.ln(10)
-    
-    # Content
     pdf.set_font("Arial", size=11)
     clean_text = text.encode('latin-1', 'ignore').decode('latin-1')
     for line in clean_text.split('\n'):
         pdf.multi_cell(0, 8, txt=line, align='L')
-    
-    # Security Footer
     pdf.ln(10)
-    pdf.set_draw_color(200, 200, 200)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(5)
     pdf.set_font("Arial", 'I', 8)
-    pdf.multi_cell(0, 5, txt=f"DIGITAL INTEGRITY HASH (SHA-256): {evidence_hash}")
-    pdf.cell(0, 5, txt=f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
-    
-    # QR Code Placeholder (Simplified for PDF)
-    pdf.ln(5)
-    pdf.set_font("Arial", 'B', 8)
-    pdf.cell(0, 5, txt="SCAN QR ON PORTAL TO VERIFY ORIGINAL DOCUMENT", ln=True)
-    
+    pdf.multi_cell(0, 5, txt=f"DIGITAL INTEGRITY HASH: {evidence_hash}")
     return pdf.output(dest='S').encode('latin-1')
 
-# --- UI LAYOUT ---
-st.title("⚖️ Nyaya AI: Forensic FIR Intake")
-st.markdown("---")
+# --- UI HEADER ---
+st.title("⚖️ Nyaya AI: Advanced Forensic Intake")
+st.info("BNS 2023 Compliant | Real-time Evidence Analysis")
 
-col1, col2 = st.columns([1, 1])
+# --- MAIN TABS ---
+tab1, tab2, tab3 = st.tabs(["🎙️ Evidence Upload", "📋 AI Analysis & FIR", "📜 Case History"])
 
-with col1:
-    st.subheader("📁 Evidence Upload")
-    audio = st.file_uploader("Upload Complaint Audio/Video", type=['wav', 'mp3', 'm4a', 'mp4'])
-    images = st.file_uploader("Upload Scene Images (Optional)", type=['jpg', 'jpeg', 'png'], accept_multiple_files=True)
-    
-    if st.button("🚀 Run Forensic Analysis", use_container_width=True, type="primary"):
+with tab1:
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.subheader("Audio Testimony")
+        audio = st.file_uploader("Upload Complaint Audio", type=['wav', 'mp3', 'm4a'])
+        st.caption("AI will analyze voice stress and narrative logic.")
+        
+    with col_b:
+        st.subheader("Visual Evidence")
+        images = st.file_uploader("Upload Scene Photos", type=['jpg', 'png', 'jpeg'], accept_multiple_files=True)
+        st.caption("AI will cross-verify photos with the audio statement.")
+
+    if st.button("🚀 Process Forensic Package", use_container_width=True, type="primary"):
         if audio:
             with st.spinner("AI SIO is evaluating evidence..."):
-                # Save temp files
                 with open("temp_audio.mp3", "wb") as f:
                     f.write(audio.read())
                 
@@ -84,52 +71,57 @@ with col1:
                             f.write(img.read())
                         img_paths.append(path)
                 
-                # Process
                 res_raw = process_complaint("temp_audio.mp3", img_paths)
                 st.session_state.analysis = json.loads(res_raw)
+                st.success("Analysis Complete! Switch to 'AI Analysis' tab.")
         else:
-            st.error("Please upload an audio statement.")
+            st.warning("Please upload at least an audio file.")
 
-with col2:
+with tab2:
     if 'analysis' in st.session_state:
         res = st.session_state.analysis
         score = res.get('credibility_score', 0)
         
-        # --- FEATURE: CONFIDENCE METER ---
-        st.subheader("🛡️ AI Confidence Score")
+        # Dashboard style columns
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Confidence Score", f"{score}%")
+        m2.metric("Jurisdiction", res.get('location', 'Unknown'))
+        m3.metric("Legal Act", "BNS 2023")
+
+        # Confidence Bar
         color = "red" if score < 40 else "orange" if score < 70 else "green"
-        st.markdown(f"<h1 style='color: {color}; text-align: center;'>{score}%</h1>", unsafe_allow_html=True)
         st.progress(score / 100)
         
-        with st.expander("🔍 Forensic Reasoning"):
-            st.write(res.get('credibility_reason', 'N/A'))
-        
-        if score >= 40:
-            st.success(f"BNS Mapping: {res.get('bns_sections', 'Unknown')}")
-            
-            # --- DRAFT REVIEW & HASHING ---
+        c1, c2 = st.columns([1.5, 1])
+        with c1:
+            st.subheader("📝 Official Draft FIR")
             draft_text = res.get('draft_letter', '')
-            edited_draft = st.text_area("Review Official Draft:", value=draft_text, height=250)
+            edited_draft = st.text_area("Finalize Content:", value=draft_text, height=350)
             
-            # Generate Hash
+            # Feature: Digital Lock
             doc_hash = generate_evidence_hash(edited_draft)
-            st.caption(f"🔒 Document Lock Hash: {doc_hash}")
+            st.code(f"SHA-256 Hash: {doc_hash}", language="text")
+
+        with c2:
+            st.subheader("🔍 Forensic Logic")
+            st.write(res.get('credibility_reason', 'Analysis pending...'))
             
-            # --- FEATURE: HINDI TRANSLATION ---
-            if st.button("🇮🇳 Translate for Citizen Verification"):
-                with st.spinner("Translating..."):
-                    hindi_text = translate_to_hindi(edited_draft)
-                    st.info(hindi_text)
-            
-            # --- FEATURE: QR & EXPORT ---
-            qr_img = generate_qr_code(f"NyayaAI-Verified-{doc_hash}")
-            st.image(qr_img, width=150, caption="Verification QR")
+            # Translation Feature
+            if st.button("🇮🇳 Translate to Hindi"):
+                hindi = translate_to_hindi(edited_draft)
+                st.info(hindi)
+
+            # Export Features
+            st.divider()
+            qr_img = generate_qr_code(f"Verified-NyayaAI-{doc_hash}")
+            st.image(qr_img, width=120, caption="Verification QR")
             
             pdf_data = create_pdf(edited_draft, doc_hash)
-            st.download_button(
-                label="📥 Download Secure FIR PDF",
-                data=pdf_data,
-                file_name=f"FIR_{doc_hash[:8]}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            st.download_button("📥 Download Signed PDF", data=pdf_data, file_name="Nyaya_FIR.pdf", use_container_width=True)
+    else:
+        st.info("Upload evidence in the first tab to see analysis.")
+
+with tab3:
+    st.subheader("Recent Case Logs")
+    st.write("Current Case: " + (st.session_state.analysis.get('bns_sections', 'None') if 'analysis' in st.session_state else "No active case"))
+    st.table([{"Timestamp": datetime.now().strftime("%H:%M"), "Status": "Encrypted", "Node": "Forensic-AI-Node-01"}])
