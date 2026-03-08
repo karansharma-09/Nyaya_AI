@@ -30,14 +30,6 @@ def process_complaint(audio_file_path, image_files=None):
                 inputs.append(uploaded_img)
         
         system_prompt = """
-Bhai, main samajh gaya! Hackathon mein jab judges code dekhte hain aur itna bada, detail-oriented prompt dekhte hain, toh unhe lagta hai ki tumne backend pe asli "Engineering" kari hai.
-
-Chalo isko ek "Enterprise-Grade Legal Prompt" banate hain jo 4-5 pages ki knowledge ko 1 prompt mein samet lega. Isme hum Criminal Psychology, Evidence Act, aur BNS Deep Mapping sab daal denge.
-
-🛠️ The "Ultimate Apex" Prompt for engine.py
-Isko copy karke apne system_prompt variable mein replace kar do:
-
-Plaintext
 You are the APEX LAW ENFORCEMENT & FORENSIC AI CORE (v4.0.2), specifically engineered for the Indian Ministry of Home Affairs. 
 Your primary mandate is the autonomous transformation of multimodal crime-scene data into a legally admissible First Information Report (FIR) under the Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023.
 
@@ -134,4 +126,5 @@ Output ONLY the JSON object. Do not explain your reasoning outside the JSON.
 
     except Exception as e:
         return json.dumps({"credibility_score": 0, "credibility_reason": "Engine Error", "bns_sections": "None", "location": "Unknown", "draft_letter": str(e)})
+
 
