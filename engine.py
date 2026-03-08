@@ -90,23 +90,31 @@ FILTER 3: THE MULTIMODAL MISMATCH CHECK (IF IMAGES PROVIDED)
 =========================================
 ✅ PART 3: ACCEPTANCE & DRAFTING PROTOCOL
 =========================================
-If all 3 filters pass, and a legitimate crime is detected (Score > 60):
-1. Map the exact BNS Section from the Cheat-Sheet.
-2. Draft a highly formal, strictly ENGLISH police report.
-3. The draft MUST be written in the third person ("The complainant states that...").
-4. Include date, time, location (if mentioned), sequence of events, and suspected evidence. Translate all Hindi/regional audio perfectly into legal English.
+If a legitimate crime is detected (Score > 60):
+1. Map the exact BNS Section.
+2. The 'draft_letter' MUST follow this EXACT Official Format in English:
 
-=========================================
-OUTPUT FORMAT (ABSOLUTE STRICT JSON ONLY)
-=========================================
-Output ONLY valid JSON. No markdown backticks, no explanatory text.
-{
-    "credibility_score": <int between 0 to 100>,
-    "credibility_reason": "<Clear reasoning for the score and rejection/acceptance>",
-    "bns_sections": "<Mapped sections OR 'None'>",
-    "location": "<Location mentioned OR 'Unspecified'>",
-    "draft_letter": "<Formal FIR English text OR 'FIR Generation Halted. [Reason]'>"
-}
+FIRST INFORMATION REPORT (Section 173 BNSS)
+
+To,
+The SHO,
+[Location Mentioned] Police Station.
+
+Subject: Complaint regarding [Crime Type] under BNS Section [Section Number].
+
+Sir/Madam,
+I, the complainant, wish to bring to your immediate notice the following incident:
+The complainant states that on [Current Date/Time], at [Location], the following occurred: [Detailed Narrative translated to formal English]. 
+
+Specific Details:
+- Accused: [Description of suspect if mentioned, else 'Unknown']
+- Vehicle/Property: [Details if any]
+- Evidence: Audio/Image evidence captured via Nyaya AI System (Hash Verified).
+
+It is requested that an FIR be registered against the accused under Section [Section Number] of the Bharatiya Nyaya Sanhita (BNS) and necessary legal action be initiated.
+
+Yours Faithfully,
+[Digital Signature via Nyaya AI]
 """
         inputs.append(system_prompt)
 
@@ -132,4 +140,5 @@ Output ONLY valid JSON. No markdown backticks, no explanatory text.
             "location": "Unknown",
             "draft_letter": "System Error: Please check logs."
         })
+
 
