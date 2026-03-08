@@ -53,8 +53,8 @@ st.markdown("""
     .admissibility-tag {
         display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; margin-top: 5px;
     }
-    .admissibility-high { background-color: #rgba(63, 185, 80, 0.1); color: #3FB950; border: 1px solid #3FB950; }
-    .admissibility-low { background-color: #rgba(248, 81, 73, 0.1); color: #F85149; border: 1px solid #F85149; }
+    .admissibility-high { background-color: rgba(63, 185, 80, 0.1); color: #3FB950; border: 1px solid #3FB950; }
+    .admissibility-low { background-color: rgba(248, 81, 73, 0.1); color: #F85149; border: 1px solid #F85149; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,6 +62,8 @@ st.markdown("""
 def init_db():
     conn = sqlite3.connect("nyaya_records.db")
     c = conn.cursor()
+    
+    # 1. FIR Archives Table
     c.execute('''CREATE TABLE IF NOT EXISTS fir_archives (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     fir_id TEXT,
@@ -73,13 +75,28 @@ def init_db():
                     evidence_hash TEXT
                 )''')
     
-    # Add some dummy data if the database is newly created and empty
+    # 2. Users (Officers & Admins) Table [NAYA FEATURE]
+    c.execute('''CREATE TABLE IF NOT EXISTS officers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE,
+                    password TEXT,
+                    name TEXT,
+                    station TEXT,
+                    role TEXT
+                )''')
+    
+    # Add default admin agar exist nahi karta
+    c.execute("SELECT COUNT(*) FROM officers WHERE role='admin'")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO officers (username, password, name, station, role) VALUES (?, ?, ?, ?, ?)", 
+                  ('admin', 'nyaya2026', 'System Admin', 'Police HQ', 'admin'))
+
+    # Add dummy FIR data if db is newly created
     c.execute("SELECT COUNT(*) FROM fir_archives")
     if c.fetchone()[0] == 0:
         dummy_data = [
             ("NY-882", "08-03-2026", "Verified", "303(2)", "Insp. Sharma", "Connaught Place", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-            ("NY-881", "07-03-2026", "Pending Review", "115(1)", "SI Verma", "Rohini Sec 7", "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"),
-            ("NY-879", "06-03-2026", "Flagged (Fake)", "None", "Insp. Sharma", "South Ext", "invalid_hash_sequence")
+            ("NY-881", "07-03-2026", "Pending Review", "115(1)", "SI Verma", "Rohini Sec 7", "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92")
         ]
         c.executemany("INSERT INTO fir_archives (fir_id, date_filed, status, bns_sections, officer, location, evidence_hash) VALUES (?, ?, ?, ?, ?, ?, ?)", dummy_data)
     
@@ -93,14 +110,13 @@ init_db()
 def get_dynamic_coords(loc_string):
     if not loc_string or loc_string.lower() == 'not detected':
         return "28.6139° N, 77.2090° E" # Default Delhi
-    # Create deterministic fake coordinates based on location name string
     h = int(hashlib.md5(loc_string.encode()).hexdigest(), 16)
     lat = 28.0 + (h % 100) / 100.0
     lon = 77.0 + ((h // 100) % 100) / 100.0
     return f"{lat:.4f}° N, {lon:.4f}° E"
 
 # Helper for PDF 
-def create_pdf(text, hash_val, gps_coords, ip_address):
+def create_pdf(text, hash_val, gps_coords, ip_address, officer_name, station_name):
     pdf = FPDF()
     pdf.add_page()
     
@@ -111,13 +127,18 @@ def create_pdf(text, hash_val, gps_coords, ip_address):
     pdf.cell(0, 10, "Generated via Nyaya AI Law Enforcement Core", ln=True, align='C')
     pdf.ln(5)
     
+    # Officer Info
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(0, 8, f"Reporting Officer: {officer_name} | Station: {station_name}", ln=True)
+    pdf.ln(2)
+    
     # Main Draft Body
     pdf.set_font("Arial", size=11)
     clean_text = text.encode('latin-1', 'ignore').decode('latin-1')
     for line in clean_text.split('\n'):
         pdf.multi_cell(0, 10, txt=line, align='L')
         
-    # Add Security Section at the end
+    # Security Section at the end
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 11)
     pdf.cell(0, 10, "==================================================", ln=True)
@@ -128,7 +149,7 @@ def create_pdf(text, hash_val, gps_coords, ip_address):
     pdf.cell(0, 8, f"Geospatial Coordinates: {gps_coords}", ln=True)
     pdf.cell(0, 8, f"Ingestion Terminal IP: {ip_address}", ln=True)
     
-    # Generate temporary QR Code image and embed in PDF
+    # QR Code
     qr = qrcode.QRCode(version=1, box_size=5, border=2)
     qr.add_data(f"Nyaya AI Security Hash: {hash_val}")
     qr.make(fit=True)
@@ -136,17 +157,13 @@ def create_pdf(text, hash_val, gps_coords, ip_address):
     
     temp_qr_path = f"temp_qr_{int(time.time())}.png"
     img.save(temp_qr_path)
-    
-    # Embed image (width=30)
     pdf.image(temp_qr_path, w=30)
     
-    # Cleanup temporary image file
     if os.path.exists(temp_qr_path):
         os.remove(temp_qr_path)
         
     return pdf.output(dest='S').encode('latin-1')
 
-# --- NEW HELPER FOR UI QR CODE ---
 def generate_qr_code(data):
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(data)
@@ -158,9 +175,9 @@ def generate_qr_code(data):
 
 # --- SESSION STATE INITIALIZATION ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+if 'current_user' not in st.session_state: st.session_state.current_user = None
 if 'processed' not in st.session_state: st.session_state.processed = False
 if 'data' not in st.session_state: st.session_state.data = None
-# Simulate a fixed intranet IP for the session
 if 'session_ip' not in st.session_state: st.session_state.session_ip = f"10.24.{np.random.randint(1,255)}.{np.random.randint(1,255)}"
 
 # ==========================================
@@ -177,17 +194,31 @@ if not st.session_state.logged_in:
             st.divider()
             
             st.markdown("#### Station Intranet Login")
-            officer_id = st.text_input("Officer ID / Badge Number", placeholder="e.g., admin")
-            password = st.text_input("Secure Password", type="password", placeholder="••••••••")
+            input_username = st.text_input("Username / Badge ID", placeholder="e.g., admin or SI_Rajput")
+            input_password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
-                if officer_id == "admin" and password == "nyaya2026":
+                # DB se check karo
+                conn = sqlite3.connect("nyaya_records.db")
+                c = conn.cursor()
+                c.execute("SELECT id, username, name, station, role FROM officers WHERE username=? AND password=?", (input_username, input_password))
+                user_record = c.fetchone()
+                conn.close()
+                
+                if user_record:
                     with st.spinner("Verifying credentials & IP integrity..."):
                         time.sleep(1)
                         st.session_state.logged_in = True
+                        st.session_state.current_user = {
+                            'id': user_record[0],
+                            'username': user_record[1],
+                            'name': user_record[2],
+                            'station': user_record[3],
+                            'role': user_record[4]
+                        }
                         st.rerun()
-                elif officer_id or password:
-                    st.error("Invalid Credentials. Access Denied.")
+                elif input_username or input_password:
+                    st.error("Invalid Credentials. Access Denied. Kripya apna sahi Username aur Password daalein.")
                     
             st.markdown("<br><p style='text-align: center; font-size: 12px; color: #484F58;'>Attempting to bypass this portal is a federal offense under BNS Section 302.</p>", unsafe_allow_html=True)
     st.stop()
@@ -196,21 +227,42 @@ if not st.session_state.logged_in:
 # 🟢 MAIN APPLICATION
 # ==========================================
 
+# Current user details
+user_role = st.session_state.current_user['role']
+user_name = st.session_state.current_user['name']
+user_station = st.session_state.current_user['station']
+
 # --- SIDEBAR & LIVE CLOCK ---
 with st.sidebar:
     st.markdown("<h1 style='color: #58A6FF; margin-bottom:0; font-weight: 800; letter-spacing: 1px;'>NYAYA <span style='color:#E6EDF3; font-weight: 300;'>AI</span></h1>", unsafe_allow_html=True)
-    st.caption("DUTY OFFICER: ADMIN")
+    
+    # Show badge depending on role
+    if user_role == 'admin':
+        st.caption(f"🛡️ ADMIN: {user_name.upper()}")
+    else:
+        st.caption(f"👮 OFFICER: {user_name.upper()}")
+        st.caption(f"📍 STATION: {user_station.upper()}")
+        
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Highly Professional Law Enforcement Tabs
-    menu = [
-        ":material/admin_panel_settings: Command Center", 
-        ":material/policy: Evidence Intake", 
-        ":material/assignment: FIR Archives", 
-        ":material/insights: Crime Analytics"
-    ]
-    # Index 1 defaults to Evidence Intake
-    choice = st.radio("Navigation", menu, index=1, label_visibility="collapsed")
+    # 📌 DYNAMIC MENU BASED ON ROLE
+    if user_role == 'admin':
+        menu = [
+            ":material/admin_panel_settings: Command Center", 
+            ":material/group_add: Manage Officers", 
+            ":material/assignment: FIR Archives", 
+            ":material/insights: Crime Analytics"
+        ]
+        default_index = 0
+    else:
+        # Officer sirf Evidence Intake aur Archives dekh payega
+        menu = [
+            ":material/policy: Evidence Intake", 
+            ":material/assignment: FIR Archives"
+        ]
+        default_index = 0
+
+    choice = st.radio("Navigation", menu, index=default_index, label_visibility="collapsed")
     
     st.markdown("<br><br>", unsafe_allow_html=True)
     components.html("""
@@ -227,6 +279,7 @@ with st.sidebar:
     
     if st.button(":material/logout: Secure Logout", use_container_width=True):
         st.session_state.logged_in = False
+        st.session_state.current_user = None
         st.session_state.processed = False
         st.session_state.data = None
         st.rerun()
@@ -237,18 +290,20 @@ if choice == ":material/admin_panel_settings: Command Center":
     st.title("Station Command Center")
     st.markdown("Real-time intelligence synced with regional police database.")
     
-    # Fetch real counts from DB
     conn = sqlite3.connect("nyaya_records.db")
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM fir_archives")
     total_cases = c.fetchone()[0]
+    
+    c.execute("SELECT COUNT(*) FROM officers WHERE role='officer'")
+    total_officers = c.fetchone()[0]
     conn.close()
     
     with st.container(border=True):
         m1, m2, m3 = st.columns(3)
         m1.metric("Total Archived Cases", str(total_cases), "+1 Today")
-        m2.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
-        m3.metric("Avg. Resolution", "14m", "-2m")
+        m2.metric("Active Field Officers", str(total_officers), "Deployed")
+        m3.metric("AI Accuracy", "98.4%", "Stable", delta_color="off")
     
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -265,11 +320,56 @@ if choice == ":material/admin_panel_settings: Command Center":
         st.warning("**Rohini:** Vehicle theft spike detected.")
         st.info("**South Ext:** Normal patrolling active.")
 
+# ====================================================
+# 👮 MANAGE OFFICERS TAB (ADMIN ONLY)
+# ====================================================
+elif choice == ":material/group_add: Manage Officers":
+    st.title("Manage Police Personnel")
+    st.markdown("Add authorized officers who can access the AI Evidence Intake system.")
+    
+    col1, col2 = st.columns([1, 1.5])
+    
+    with col1:
+        st.subheader("Add New Officer")
+        with st.form("add_officer_form", clear_on_submit=True):
+            new_name = st.text_input("Full Name (e.g., SI Vikram Singh)")
+            new_station = st.text_input("Police Station Location (e.g., Hauz Khas)")
+            new_username = st.text_input("Login Username")
+            new_password = st.text_input("Login Password", type="password")
+            
+            submit_btn = st.form_submit_button("Create Officer Account", use_container_width=True)
+            
+            if submit_btn:
+                if new_name and new_station and new_username and new_password:
+                    try:
+                        conn = sqlite3.connect("nyaya_records.db")
+                        c = conn.cursor()
+                        c.execute("INSERT INTO officers (username, password, name, station, role) VALUES (?, ?, ?, ?, ?)",
+                                  (new_username, new_password, new_name, new_station, 'officer'))
+                        conn.commit()
+                        conn.close()
+                        st.success(f"✅ Officer {new_name} added successfully!")
+                        time.sleep(1) # Refresh dikhane ke liye
+                        st.rerun()
+                    except sqlite3.IntegrityError:
+                        st.error("⚠️ Username already exists! Koi dusra username try karein.")
+                else:
+                    st.warning("⚠️ Sabhi fields bharna zaroori hai.")
+
+    with col2:
+        st.subheader("Authorized Personnel Directory")
+        conn = sqlite3.connect("nyaya_records.db")
+        df_officers = pd.read_sql_query("SELECT id, name as 'Officer Name', station as 'Station', username as 'Login ID', role as 'Role' FROM officers", conn)
+        conn.close()
+        st.dataframe(df_officers, use_container_width=True, hide_index=True)
+
+# ====================================================
+# 📝 FIR ARCHIVES TAB (ALL ROLES)
+# ====================================================
 elif choice == ":material/assignment: FIR Archives":
     st.title("Station FIR Archives")
     st.markdown("Centralized database of all processed and saved complaints.")
     
-    # Read LIVE data from SQLite Database
     conn = sqlite3.connect("nyaya_records.db")
     query = """
     SELECT 
@@ -290,9 +390,13 @@ elif choice == ":material/assignment: FIR Archives":
     else:
         st.dataframe(cases, use_container_width=True, hide_index=True)
 
+# ====================================================
+# 🎙️ EVIDENCE INTAKE TAB (OFFICER ONLY)
+# ====================================================
 elif choice == ":material/policy: Evidence Intake":
     st.title("AI Evidence Intake Portal")
-    st.markdown("Securely process raw evidence to generate BNS mapped draft reports.")
+    st.markdown(f"**Logged in as:** {user_name} | **Station:** {user_station}")
+    st.caption("Securely process raw evidence to generate BNS mapped draft reports.")
     
     if not st.session_state.processed:
         tab1, tab2, tab3 = st.tabs(["🎙️ Audio Evidence", "📹 Video / CCTV", "📸 Live Camera"])
@@ -325,15 +429,12 @@ elif choice == ":material/policy: Evidence Intake":
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("Initialize Forensic AI & Mapping", type="primary", use_container_width=True):
                 
-                # --- SAFETY CHECK ---
                 if not final_audio_bytes:
                     st.warning("⚠️ Please provide an Audio Statement (Record/Upload) explaining the video/photos for AI semantic analysis.")
                     st.stop()
                 
-                # Advanced Loading Progress
                 progress_bar = st.progress(0, text="Locking evidence & generating cryptographic SHA-256 Hash...")
                 
-                # 🚀 ACTUAL FORENSIC HASHING OF BINARY DATA
                 combined_binary_data = b""
                 if final_audio_bytes: combined_binary_data += final_audio_bytes
                 if final_video_bytes: combined_binary_data += final_video_bytes
@@ -343,8 +444,8 @@ elif choice == ":material/policy: Evidence Intake":
                         combined_binary_data += img.getvalue()
                         
                 real_evidence_hash = hashlib.sha256(combined_binary_data).hexdigest()
-                st.session_state.current_hash = real_evidence_hash # Save in state
-                st.session_state.db_saved = False # Reset DB save state
+                st.session_state.current_hash = real_evidence_hash 
+                st.session_state.db_saved = False 
                 
                 time.sleep(0.5)
                 
@@ -367,7 +468,6 @@ elif choice == ":material/policy: Evidence Intake":
                 progress_bar.progress(60, text="Corroborating data with BNS 2023 Master Codebook...")
                 
                 try:
-                    # Pass the audio and all gathered images/live pics to AI engine
                     res = process_complaint(audio_path, img_paths)
                     progress_bar.progress(90, text="Drafting Legally Admissible Section 173 BNSS Report...")
                     
@@ -390,9 +490,7 @@ elif choice == ":material/policy: Evidence Intake":
     else:
         res = st.session_state.data
         
-        # Robust Score Extraction
         raw_score = res.get('credibility_score', res.get('credibility', res.get('score', 0)))
-        
         if isinstance(raw_score, str):
             nums = re.findall(r'\d+', raw_score)
             score = int(nums[0]) if nums else 0
@@ -410,7 +508,6 @@ elif choice == ":material/policy: Evidence Intake":
                 st.markdown(f"**Incident Location:** {res.get('location', 'Not detected')}")
                 st.markdown(f"**Recommended BNS Sections:** `{res.get('bns_sections', 'Not detected')}`")
                 
-                # Dynamic Legal Admissibility Tag
                 if score >= 60:
                     st.markdown("<span class='admissibility-tag admissibility-high'>🛡️ Highly Admissible in Court</span>", unsafe_allow_html=True)
                 else:
@@ -424,10 +521,9 @@ elif choice == ":material/policy: Evidence Intake":
                 else:
                     st.success(f"✅ CASE VERIFIED\n\n**Credibility Score:** {score}%")
         
-        # --- CHAIN OF CUSTODY (BSA 2023) ---
+        # --- CHAIN OF CUSTODY ---
         st.markdown("### 🔐 Chain of Custody (BSA 2023 Compliant)")
         
-        # --- DYNAMIC GPS AND IP ---
         detected_location = res.get('location', 'Not detected')
         dynamic_gps = get_dynamic_coords(detected_location)
         network_ip = st.session_state.session_ip
@@ -435,17 +531,16 @@ elif choice == ":material/policy: Evidence Intake":
         
         with st.container(border=True):
             c1, c2 = st.columns(2)
-            
             with c1:
                 st.markdown("**Evidence SHA-256 Hash:**")
                 st.code(actual_hash, language="text")
-                st.markdown("**Incident Geo-Coordinates (Extracted):**")
+                st.markdown("**Incident Geo-Coordinates:**")
                 st.code(f"Lat/Lon: {dynamic_gps}\n({detected_location})", language="text")
             with c2:
-                st.markdown("**Timestamp (System):**")
-                st.code(datetime.now().isoformat(timespec='seconds') + "Z", language="text")
-                st.markdown("**Ingestion Terminal IP (Secure):**")
+                st.markdown("**Ingestion Terminal IP:**")
                 st.code(f"{network_ip} (Police Intranet)", language="text")
+                st.markdown("**Logged Officer & Station:**")
+                st.code(f"{user_name} | {user_station}", language="text")
 
         # --- DRAFT REVIEW ---
         if score >= 40:
@@ -453,9 +548,7 @@ elif choice == ":material/policy: Evidence Intake":
             draft_text = res.get('draft_letter', '')
             edited_draft = st.text_area("Modify AI-generated draft before exporting to PDF:", value=draft_text, height=300, label_visibility="collapsed")
             
-            # --- 🇮🇳 HINDI TRANSLATION FEATURE ---
-            if 'hindi_draft' not in st.session_state:
-                st.session_state.hindi_draft = None
+            if 'hindi_draft' not in st.session_state: st.session_state.hindi_draft = None
                 
             if st.button("🇮🇳 Translate to Official Hindi (For Citizen Verification)", use_container_width=True):
                 with st.spinner("Translating to official legal Hindi..."):
@@ -466,8 +559,6 @@ elif choice == ":material/policy: Evidence Intake":
                 st.info(st.session_state.hindi_draft)
             
             st.markdown("<br>", unsafe_allow_html=True)
-            
-            # --- DOCUMENT EXPORT & DATABASE SAVE SECTION ---
             st.markdown("### Document Export & Archival")
             
             qr_col, action_col = st.columns([1, 4])
@@ -479,9 +570,10 @@ elif choice == ":material/policy: Evidence Intake":
                 
             with action_col:
                 st.markdown("<br>", unsafe_allow_html=True)
-                pdf_data = create_pdf(edited_draft, actual_hash, dynamic_gps, network_ip) 
                 
-                # 1. Download Button
+                # NAYE PDF FUNCTION MEIN OFFICER DETAILS PASS KAR RAHE HAIN
+                pdf_data = create_pdf(edited_draft, actual_hash, dynamic_gps, network_ip, user_name, user_station) 
+                
                 st.download_button(
                     label=":material/download: Export Official FIR Document (PDF)",
                     data=pdf_data,
@@ -491,17 +583,16 @@ elif choice == ":material/policy: Evidence Intake":
                     use_container_width=True
                 )
                 
-                # 2. Database Save Button
                 if not st.session_state.get('db_saved', False):
                     if st.button("💾 Save to Central Database (Archives)", type="secondary", use_container_width=True):
-                        # Save to SQLite
                         conn = sqlite3.connect("nyaya_records.db")
                         c = conn.cursor()
                         new_fir_id = f"NY-{np.random.randint(1000, 9999)}"
                         curr_date = datetime.now().strftime("%d-%m-%Y")
                         
+                        # Officer name ki jagah logged-in officer ka naam pass kar rahe hain
                         c.execute("INSERT INTO fir_archives (fir_id, date_filed, status, bns_sections, officer, location, evidence_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                  (new_fir_id, curr_date, "Verified", res.get('bns_sections', 'N/A'), "admin", detected_location, actual_hash))
+                                  (new_fir_id, curr_date, "Verified", res.get('bns_sections', 'N/A'), user_name, detected_location, actual_hash))
                         conn.commit()
                         conn.close()
                         
@@ -510,16 +601,13 @@ elif choice == ":material/policy: Evidence Intake":
                 else:
                     st.success("✅ Case successfully archived in the Central Database! You can view it in the 'FIR Archives' tab.")
             
-            # --- NEW EVIDENCE INTAKE BUTTON ---
             st.markdown("<br><hr>", unsafe_allow_html=True)
             if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
                 st.session_state.processed = False
                 st.session_state.data = None
                 st.session_state.db_saved = False
-                if 'hindi_draft' in st.session_state:
-                    st.session_state.hindi_draft = None
-                if 'current_hash' in st.session_state:
-                    del st.session_state.current_hash
+                if 'hindi_draft' in st.session_state: st.session_state.hindi_draft = None
+                if 'current_hash' in st.session_state: del st.session_state.current_hash
                 st.rerun()
 
 elif choice == ":material/insights: Crime Analytics":
@@ -529,5 +617,5 @@ elif choice == ":material/insights: Crime Analytics":
         st.bar_chart(pd.DataFrame(np.random.randint(10, 50, size=(7, 1)), index=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]))
 
 else:
-    st.title(choice.split(": ")[-1])
+    st.title("Nyaya AI Module")
     st.info("Module ready. Awaiting secure network connection.")
