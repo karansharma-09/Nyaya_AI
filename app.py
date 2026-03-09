@@ -325,7 +325,7 @@ if choice == ":material/admin_panel_settings: Command Center":
 # ====================================================
 elif choice == ":material/group_add: Manage Officers":
     st.title("Manage Police Personnel")
-    st.markdown("Add authorized officers who can access the AI Evidence Intake system.")
+    st.markdown("Add or remove authorized officers who can access the AI Evidence Intake system.")
     
     col1, col2 = st.columns([1, 1.5])
     
@@ -353,6 +353,41 @@ elif choice == ":material/group_add: Manage Officers":
                         st.rerun()
                     except sqlite3.IntegrityError:
                         st.error("⚠️ Username already exists! Koi dusra username try karein.")
+                else:
+                    st.warning("⚠️ Sabhi fields bharna zaroori hai.")
+        
+        # --- NEW DELETION FEATURE WITH PASSWORD ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("Remove Officer")
+        with st.form("delete_officer_form", clear_on_submit=True):
+            del_username = st.text_input("Officer Username to Remove")
+            admin_password = st.text_input("Your Admin Password (Required)", type="password")
+            
+            del_btn = st.form_submit_button("Delete Officer Account", use_container_width=True)
+            
+            if del_btn:
+                if del_username and admin_password:
+                    conn = sqlite3.connect("nyaya_records.db")
+                    c = conn.cursor()
+                    
+                    # Verify admin password first
+                    c.execute("SELECT * FROM officers WHERE id=? AND password=?", (st.session_state.current_user['id'], admin_password))
+                    if c.fetchone():
+                        if del_username == st.session_state.current_user['username']:
+                            st.error("⚠️ You cannot delete your own admin account!")
+                        else:
+                            c.execute("DELETE FROM officers WHERE username=?", (del_username,))
+                            if c.rowcount > 0:
+                                conn.commit()
+                                st.success(f"✅ Officer '{del_username}' removed successfully!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("⚠️ Officer username not found in database.")
+                    else:
+                        st.error("❌ Incorrect Admin Password. Deletion access denied.")
+                        
+                    conn.close()
                 else:
                     st.warning("⚠️ Sabhi fields bharna zaroori hai.")
 
@@ -600,15 +635,16 @@ elif choice == ":material/policy: Evidence Intake":
                         st.rerun()
                 else:
                     st.success("✅ Case successfully archived in the Central Database! You can view it in the 'FIR Archives' tab.")
-            
-            st.markdown("<br><hr>", unsafe_allow_html=True)
-            if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
-                st.session_state.processed = False
-                st.session_state.data = None
-                st.session_state.db_saved = False
-                if 'hindi_draft' in st.session_state: st.session_state.hindi_draft = None
-                if 'current_hash' in st.session_state: del st.session_state.current_hash
-                st.rerun()
+        
+        # --- NEW CASE BUTTON (MOVED OUTSIDE 'if score >= 40' TO FIX THE BUG) ---
+        st.markdown("<br><hr>", unsafe_allow_html=True)
+        if st.button("➕ Start New Evidence Intake", type="secondary", use_container_width=True):
+            st.session_state.processed = False
+            st.session_state.data = None
+            st.session_state.db_saved = False
+            if 'hindi_draft' in st.session_state: st.session_state.hindi_draft = None
+            if 'current_hash' in st.session_state: del st.session_state.current_hash
+            st.rerun()
 
 elif choice == ":material/insights: Crime Analytics":
     st.title("Jurisdiction Analytics")
