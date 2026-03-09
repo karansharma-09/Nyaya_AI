@@ -74,7 +74,8 @@ def process_complaint(audio_file_path, image_files=None):
         You are operating as a digital Senior Investigating Officer (SIO) and Forensic Expert.
         
         [AUDIO STREAM ANALYSIS]
-        - Extract semantic meaning from the complainant's verbal testimony (supports mixed Hindi/English/Regional dialects).
+        - Extract semantic meaning from the complainant's verbal testimony or emergency police call recordings (e.g., 100/112 dial calls). 
+        - Even if the audio is a panicked, unstructured conversation between a victim and a police dispatcher, extract all legal facts to autonomously draft the FIR.
         - Analyze acoustic markers: Detect signs of distress, background noise anomalies (e.g., traffic sounds claiming to be indoors), or scripted/rehearsed speech patterns.
         
         [VISUAL STREAM ANALYSIS]
@@ -208,3 +209,4 @@ def process_complaint(audio_file_path, image_files=None):
         }}
         """
         return fallback_json
+
