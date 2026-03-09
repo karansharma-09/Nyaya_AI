@@ -194,7 +194,7 @@ if not st.session_state.logged_in:
             st.divider()
             
             st.markdown("#### Station Intranet Login")
-            input_username = st.text_input("Username / Badge ID", placeholder="e.g., admin or SI_Rajput")
+            input_username = st.text_input("Username / Badge ID", placeholder="Enter Username")
             input_password = st.text_input("Secure Password", type="password", placeholder="••••••••")
             
             if st.button("Authenticate 🔒", type="primary", use_container_width=True):
@@ -655,3 +655,4 @@ elif choice == ":material/insights: Crime Analytics":
 else:
     st.title("Nyaya AI Module")
     st.info("Module ready. Awaiting secure network connection.")
+
