@@ -191,7 +191,7 @@ def process_complaint(audio_file_path, image_files=None):
             ],
             "draft_letter": "<The full formal legal draft MUST start exactly with 'FIRST INFORMATION REPORT... Reference ID: {fir_reference_id}'. If score < 40, state 'FIR GENERATION HALTED.'>"
         }}
-        """
+        ""
         
         # 4. Initialize model with JSON constraint and system instruction
         model = genai.GenerativeModel(
@@ -248,3 +248,4 @@ def process_complaint(audio_file_path, image_files=None):
         }}
         """
         return fallback_json
+
