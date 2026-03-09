@@ -61,7 +61,7 @@ def process_complaint(audio_file_path, image_files=None):
                 except Exception as img_err:
                     print(f"Warning: Failed to upload image {img_path}: {img_err}")
                 
-        # 3. Clean Enterprise Prompt (MASSIVELY ENHANCED)
+        # 3. Clean Enterprise Prompt (MASSIVELY ENHANCED WITH NEW FEATURES)
         system_instruction = """
         [System Initialization]
         IDENTITY: APEX LAW ENFORCEMENT & FORENSIC AI CORE (v5.0 - Enterprise Edition)
@@ -74,9 +74,10 @@ def process_complaint(audio_file_path, image_files=None):
         You are operating as a digital Senior Investigating Officer (SIO) and Forensic Expert.
         
         [AUDIO STREAM ANALYSIS]
-        - Extract semantic meaning from the complainant's verbal testimony or emergency police call recordings (e.g., 100/112 dial calls). 
+        - Extract semantic meaning from the complainant's verbal testimony OR raw emergency police call recordings (e.g., 100/112 dial calls).
         - Even if the audio is a panicked, unstructured conversation between a victim and a police dispatcher, extract all legal facts to autonomously draft the FIR.
         - Analyze acoustic markers: Detect signs of distress, background noise anomalies (e.g., traffic sounds claiming to be indoors), or scripted/rehearsed speech patterns.
+        - Determine the caller's Distress Level (e.g., Panic, Calm, Injured, Aggressive) to assist emergency response.
         
         [VISUAL STREAM ANALYSIS]
         - Conduct pixel-level scrutiny of photographic evidence.
@@ -159,8 +160,18 @@ def process_complaint(audio_file_path, image_files=None):
         {
             "credibility_score": <int 0-100>,
             "credibility_reason": "<Forensic justification, citing specific acoustic/visual/logical cues>",
+            "priority_level": "<CRITICAL, HIGH, MEDIUM, or LOW based on the severity of the BNS section>",
             "bns_sections": "<e.g., BNS 303(2), BNS 351(2)>",
-            "location": "<Extracted PS Jurisdiction or 'Area of Incident'>",
+            "location": "<Extracted PS Jurisdiction or Area. STRICT RULE: If location is NOT explicitly mentioned in the audio/text, output EXACTLY 'Location Not Provided'. DO NOT hallucinate fake coordinates or guess places.>",
+            "extracted_entities": {
+                "distress_level": "<e.g., Panic, Calm, Aggressive>",
+                "suspect_info": "<Any mentioned details about the accused (appearance, name). If none, say 'Not Provided'>",
+                "vehicle_info": "<Any mentioned license plates or vehicle descriptions. If none, say 'Not Provided'>"
+            },
+            "investigation_suggestions": [
+                "<Actionable step 1 for the police (e.g., Secure CCTV at location X)>",
+                "<Actionable step 2>"
+            ],
             "draft_letter": "<The full formal legal draft. If score < 40, state 'FIR GENERATION HALTED: Case does not meet cognizable thresholds.'>"
         }
         """
@@ -198,15 +209,23 @@ def process_complaint(audio_file_path, image_files=None):
         except:
              pass
              
-        # Return fallback JSON string to UI
+        # Return fallback JSON string to UI (UPDATED TO MATCH NEW SCHEMA)
         fallback_json = f"""
         {{
             "credibility_score": 0, 
             "credibility_reason": "CRITICAL ENGINE FAILURE: {error_msg}", 
+            "priority_level": "UNKNOWN",
             "bns_sections": "System Offline", 
             "location": "Unknown", 
+            "extracted_entities": {{
+                "distress_level": "Unknown",
+                "suspect_info": "Unknown",
+                "vehicle_info": "Unknown"
+            }},
+            "investigation_suggestions": [
+                "System offline. Manual investigation required."
+            ],
             "draft_letter": "The Analysis Engine encountered a fatal error while processing the multimodal streams. Error Details: {error_msg}"
         }}
         """
         return fallback_json
-
