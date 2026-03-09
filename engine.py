@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
 import json
+import time
 from datetime import datetime
 import uuid
 from dotenv import load_dotenv
@@ -48,6 +49,16 @@ def process_complaint(audio_file_path, image_files=None):
         # 1. Upload Audio
         try:
             audio_file = genai.upload_file(path=audio_file_path)
+            
+            # 🛑 BUG FIX: Wait for Google to process the audio file
+            while audio_file.state.name == "PROCESSING":
+                print("Waiting for audio processing...")
+                time.sleep(2)
+                audio_file = genai.get_file(audio_file.name) # Check status again
+                
+            if audio_file.state.name == "FAILED":
+                raise Exception("Audio processing failed on Google servers.")
+                
             inputs.append(audio_file)
             uploaded_files.append(audio_file)
         except Exception as upload_err:
@@ -248,5 +259,6 @@ def process_complaint(audio_file_path, image_files=None):
         }}
         """
         return fallback_json
+
 
 
